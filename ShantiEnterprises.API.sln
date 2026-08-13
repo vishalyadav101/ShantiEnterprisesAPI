@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36915.13 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShantiEnterprises.API", "ShantiEnterprises.API\ShantiEnterprises.API.csproj", "{AA3D7774-66BC-41C6-B938-649C975BB85A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AA3D7774-66BC-41C6-B938-649C975BB85A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA3D7774-66BC-41C6-B938-649C975BB85A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA3D7774-66BC-41C6-B938-649C975BB85A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA3D7774-66BC-41C6-B938-649C975BB85A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C2D7F717-183C-4772-B888-CA0389502CFF}
+	EndGlobalSection
+EndGlobal

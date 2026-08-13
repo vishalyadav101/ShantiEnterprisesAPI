@@ -32,6 +32,16 @@ namespace ShantiEnterprises.API.Repositories
         }
 
 
+        public async Task<Product?> GetDetailsByIdAsync(int id)
+        {
+            return await _context.Products
+                .Include(x => x.Category)
+                .Include(x => x.ProductImages)
+                .Include(x => x.PriceTiers)
+                .FirstOrDefaultAsync(x => x.ProductId == id);
+        }
+
+
         public async Task<Product?> GetBySkuAsync(string sku)
         {
             return await _context.Products

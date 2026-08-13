@@ -8,6 +8,7 @@ namespace ShantiEnterprises.API.Interfaces
 
         Task<Product?> GetByIdAsync(int id);
 
+        Task<Product?> GetDetailsByIdAsync(int id);
         Task<Product?> GetBySkuAsync(string sku);
 
         Task<Product> AddAsync(Product product);

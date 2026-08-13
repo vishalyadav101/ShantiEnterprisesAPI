@@ -47,6 +47,25 @@ namespace ShantiEnterprises.API.Controllers
         }
 
 
+        // GET: api/Product/1/details
+        [HttpGet("{id:int}/details")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetDetails(int id)
+        {
+            var product =
+                await _service.GetDetailsByIdAsync(id);
+
+            if (product == null)
+            {
+                return NotFound(new
+                {
+                    message = "Product not found."
+                });
+            }
+
+            return Ok(product);
+        }
+
         // POST: api/Product
         [HttpPost]
         [Authorize(Roles = "Admin")]

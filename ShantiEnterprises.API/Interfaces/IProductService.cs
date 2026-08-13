@@ -7,6 +7,7 @@ namespace ShantiEnterprises.API.Interfaces
         Task<List<ProductResponseDto>> GetAllAsync();
 
         Task<ProductResponseDto?> GetByIdAsync(int id);
+        Task<ProductDetailResponseDto?> GetDetailsByIdAsync(int id);
 
         Task<ProductResponseDto> CreateAsync(ProductCreateDto dto);
 

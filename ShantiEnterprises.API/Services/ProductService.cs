@@ -188,6 +188,78 @@ namespace ShantiEnterprises.API.Services
         }
 
 
+        public async Task<ProductDetailResponseDto?>
+    GetDetailsByIdAsync(int id)
+        {
+            var product =
+                await _productRepository.GetDetailsByIdAsync(id);
+
+            if (product == null)
+            {
+                return null;
+            }
+
+            return new ProductDetailResponseDto
+            {
+                ProductId = product.ProductId,
+
+                ProductName = product.ProductName,
+
+                Description = product.Description,
+
+                CategoryId = product.CategoryId,
+
+                CategoryName =
+                    product.Category?.CategoryName ?? string.Empty,
+
+                MRP = product.MRP,
+
+                WholesalePrice = product.WholesalePrice,
+
+                Stock = product.Stock,
+
+                GSTPercentage = product.GSTPercentage,
+
+                SKU = product.SKU,
+
+                IsActive = product.IsActive,
+
+                CreatedDate = product.CreatedDate,
+
+                Images = product.ProductImages
+                    .Select(x => new ProductImageResponseDto
+                    {
+                        ProductImageId = x.ProductImageId,
+                        ProductId = x.ProductId,
+                        ImageUrl = x.ImageUrl,
+                        IsPrimary = x.IsPrimary
+                    })
+                    .ToList(),
+
+                PriceTiers = product.PriceTiers
+                    .OrderBy(x => x.MinQuantity)
+                    .Select(x => new ProductPriceTierResponseDto
+                    {
+                        ProductPriceTierId =
+                            x.ProductPriceTierId,
+
+                        ProductId =
+                            x.ProductId,
+
+                        MinQuantity =
+                            x.MinQuantity,
+
+                        MaxQuantity =
+                            x.MaxQuantity,
+
+                        Price =
+                            x.Price
+                    })
+                    .ToList()
+            };
+        }
+
+
         private static ProductResponseDto MapToResponse(
             Product product)
         {

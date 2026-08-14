@@ -28,6 +28,9 @@ builder.Services.AddScoped<IProductImageService, ProductImageService>();
 builder.Services.AddHttpContextAccessor();
 
 
+builder.Services.AddScoped<ICartRepository, CartRepository>();
+builder.Services.AddScoped<ICartService, CartService>();
+
 
 
 

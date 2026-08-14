@@ -1,6 +1,6 @@
-﻿namespace ShantiEnterprises.API.Models
+﻿namespace ShantiEnterprises.API.DTOs.Address
 {
-    public class Address
+    public class AddressResponseDto
     {
         public int AddressId { get; set; }
 
@@ -8,7 +8,7 @@
 
         public string FullName { get; set; } = string.Empty;
 
-        public string Mobile { get; set; } = string.Empty;
+        public string MobileNumber { get; set; } = string.Empty;
 
         public string AddressLine1 { get; set; } = string.Empty;
 
@@ -20,16 +20,12 @@
 
         public string Pincode { get; set; } = string.Empty;
 
-        public string Country { get; set; } = "India";
+        public string Country { get; set; } = string.Empty;
 
-        public string AddressType { get; set; } = "Home";
+        public string AddressType { get; set; } = string.Empty;
 
         public bool IsDefault { get; set; }
 
         public DateTime CreatedDate { get; set; }
-
-        public DateTime? UpdatedDate { get; set; }
-
-        public User? User { get; set; }
     }
 }

@@ -28,6 +28,17 @@ builder.Services.AddScoped<IProductImageService, ProductImageService>();
 builder.Services.AddHttpContextAccessor();
 
 
+<<<<<<< Updated upstream
+=======
+builder.Services.AddScoped<ICartRepository, CartRepository>();
+builder.Services.AddScoped<ICartService, CartService>();
+
+builder.Services.AddScoped<IAddressRepository, AddressRepository>();
+builder.Services.AddScoped<IAddressService, AddressService>();
+
+
+
+>>>>>>> Stashed changes
 
 
 

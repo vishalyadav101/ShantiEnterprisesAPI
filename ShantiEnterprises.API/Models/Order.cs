@@ -6,29 +6,61 @@
 
         public int UserId { get; set; }
 
-        public int? AddressId { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
 
-        public DateTime OrderDate { get; set; } = DateTime.UtcNow;
+        // =========================
+        // SHIPPING ADDRESS SNAPSHOT
+        // =========================
+
+        public string ShippingFullName { get; set; } = string.Empty;
+
+        public string ShippingMobile { get; set; } = string.Empty;
+
+        public string ShippingAddressLine1 { get; set; } = string.Empty;
+
+        public string? ShippingAddressLine2 { get; set; }
+
+        public string ShippingCity { get; set; } = string.Empty;
+
+        public string ShippingState { get; set; } = string.Empty;
+
+        public string ShippingPincode { get; set; } = string.Empty;
+
+        public string ShippingCountry { get; set; } = "India";
+
+        // =========================
+        // AMOUNT
+        // =========================
 
         public decimal Subtotal { get; set; }
 
         public decimal GSTAmount { get; set; }
 
-        public decimal ShippingAmount { get; set; }
+        public decimal ShippingCharge { get; set; }
 
         public decimal GrandTotal { get; set; }
 
-        public string Status { get; set; } = "Pending";
+        // =========================
+        // STATUS
+        // =========================
 
-        public string PaymentMethod { get; set; } = "COD";
+        public string OrderStatus { get; set; } = "Pending";
 
         public string PaymentStatus { get; set; } = "Pending";
 
-        public string ShippingAddress { get; set; } = string.Empty;
+        // =========================
+        // DATE
+        // =========================
+
+        public DateTime CreatedDate { get; set; }
+
+        public DateTime? UpdatedDate { get; set; }
+
+        // =========================
+        // NAVIGATION
+        // =========================
 
         public User? User { get; set; }
-
-        public Address? Address { get; set; }
 
         public ICollection<OrderItem> OrderItems { get; set; }
             = new List<OrderItem>();

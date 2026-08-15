@@ -38,6 +38,7 @@ namespace ShantiEnterprises.API.Data
         public DbSet<Offer> Offers { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<WebsiteSetting> WebsiteSettings { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -552,6 +553,55 @@ namespace ShantiEnterprises.API.Data
                     .WithMany()
                     .HasForeignKey(x => x.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // =========================
+            // WEBSITE SETTINGS
+            // =========================
+
+            modelBuilder.Entity<WebsiteSetting>(entity =>
+            {
+                entity.HasKey(x => x.WebsiteSettingId);
+
+                entity.Property(x => x.CompanyName)
+                    .HasMaxLength(200)
+                    .IsRequired();
+
+                entity.Property(x => x.LogoUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.FaviconUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.Email)
+                    .HasMaxLength(150);
+
+                entity.Property(x => x.Phone)
+                    .HasMaxLength(20);
+
+                entity.Property(x => x.WhatsAppNumber)
+                    .HasMaxLength(20);
+
+                entity.Property(x => x.Address)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.FacebookUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.InstagramUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.TwitterUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.LinkedInUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.YouTubeUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.FooterText)
+                    .HasMaxLength(1000);
             });
         }
     }

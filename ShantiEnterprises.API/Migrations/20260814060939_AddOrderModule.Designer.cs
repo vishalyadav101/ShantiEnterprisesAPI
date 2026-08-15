@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ShantiEnterprises.API.Data;
 
@@ -11,9 +12,11 @@ using ShantiEnterprises.API.Data;
 namespace ShantiEnterprises.API.Migrations
 {
     [DbContext(typeof(ShantiEnterprisesDbContext))]
-    partial class ShantiEnterprisesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814060939_AddOrderModule")]
+    partial class AddOrderModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -473,50 +476,6 @@ namespace ShantiEnterprises.API.Migrations
                     b.ToTable("OrderItems");
                 });
 
-            modelBuilder.Entity("ShantiEnterprises.API.Models.Payment", b =>
-                {
-                    b.Property<int>("PaymentId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PaymentId"));
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("OrderId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("PaymentDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("PaymentMethod")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<string>("PaymentStatus")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<string>("Remarks")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("TransactionId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("PaymentId");
-
-                    b.HasIndex("OrderId");
-
-                    b.ToTable("Payments");
-                });
-
             modelBuilder.Entity("ShantiEnterprises.API.Models.Product", b =>
                 {
                     b.Property<int>("ProductId")
@@ -764,17 +723,6 @@ namespace ShantiEnterprises.API.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("Product");
-                });
-
-            modelBuilder.Entity("ShantiEnterprises.API.Models.Payment", b =>
-                {
-                    b.HasOne("ShantiEnterprises.API.Models.Order", "Order")
-                        .WithMany()
-                        .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("ShantiEnterprises.API.Models.Product", b =>

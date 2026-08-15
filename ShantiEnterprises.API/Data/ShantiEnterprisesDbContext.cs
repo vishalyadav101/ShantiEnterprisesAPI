@@ -36,6 +36,7 @@ namespace ShantiEnterprises.API.Data
         public DbSet<Banner> Banners { get; set; }
 
         public DbSet<Offer> Offers { get; set; }
+        public DbSet<Payment> Payments { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -285,6 +286,10 @@ namespace ShantiEnterprises.API.Data
                 entity.HasIndex(x => x.OrderNumber)
                     .IsUnique();
 
+                // =========================
+                // AMOUNTS
+                // =========================
+
                 entity.Property(x => x.Subtotal)
                     .HasPrecision(18, 2);
 
@@ -297,6 +302,10 @@ namespace ShantiEnterprises.API.Data
                 entity.Property(x => x.GrandTotal)
                     .HasPrecision(18, 2);
 
+                // =========================
+                // STATUS
+                // =========================
+
                 entity.Property(x => x.OrderStatus)
                     .HasMaxLength(30)
                     .IsRequired();
@@ -304,6 +313,10 @@ namespace ShantiEnterprises.API.Data
                 entity.Property(x => x.PaymentStatus)
                     .HasMaxLength(30)
                     .IsRequired();
+
+                // =========================
+                // SHIPPING ADDRESS
+                // =========================
 
                 entity.Property(x => x.ShippingFullName)
                     .HasMaxLength(100)
@@ -336,7 +349,10 @@ namespace ShantiEnterprises.API.Data
                     .HasMaxLength(100)
                     .IsRequired();
 
-                // User -> Orders
+                // =========================
+                // USER -> ORDERS
+                // =========================
+
                 entity.HasOne(x => x.User)
                     .WithMany(x => x.Orders)
                     .HasForeignKey(x => x.UserId)
@@ -475,6 +491,38 @@ namespace ShantiEnterprises.API.Data
 
                 entity.Property(x => x.MinimumOrderAmount)
                     .HasPrecision(18, 2);
+            });
+
+            // =========================
+            // PAYMENT
+            // =========================
+
+            modelBuilder.Entity<Payment>(entity =>
+            {
+                entity.HasKey(x => x.PaymentId);
+
+                entity.Property(x => x.PaymentMethod)
+                    .HasMaxLength(30)
+                    .IsRequired();
+
+                entity.Property(x => x.TransactionId)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(x => x.Amount)
+                    .HasPrecision(18, 2);
+
+                entity.Property(x => x.PaymentStatus)
+                    .HasMaxLength(30)
+                    .IsRequired();
+
+                entity.Property(x => x.Remarks)
+                    .HasMaxLength(500);
+
+                entity.HasOne(x => x.Order)
+                    .WithMany()
+                    .HasForeignKey(x => x.OrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

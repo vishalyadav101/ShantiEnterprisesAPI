@@ -1,14 +1,11 @@
-﻿namespace ShantiEnterprises.API.Models
+﻿namespace ShantiEnterprises.API.DTOs.Order
 {
-    public class OrderItem
+    public class OrderItemResponseDto
     {
         public int OrderItemId { get; set; }
 
-        public int OrderId { get; set; }
-
         public int ProductId { get; set; }
 
-        // Product snapshot
         public string ProductName { get; set; } = string.Empty;
 
         public string SKU { get; set; } = string.Empty;
@@ -22,10 +19,5 @@
         public decimal GSTAmount { get; set; }
 
         public decimal TotalPrice { get; set; }
-
-        // Navigation
-        public Order? Order { get; set; }
-
-        public Product? Product { get; set; }
     }
-}
+}   

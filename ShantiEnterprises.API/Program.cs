@@ -59,6 +59,15 @@ builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
+
+
+
+
+
+
 
 
 

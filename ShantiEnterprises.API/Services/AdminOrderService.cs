@@ -1,4 +1,5 @@
 ﻿using ShantiEnterprises.API.DTOs.AdminOrder;
+using ShantiEnterprises.API.DTOs.Notification;
 using ShantiEnterprises.API.Interfaces;
 using ShantiEnterprises.API.Models;
 
@@ -7,11 +8,14 @@ namespace ShantiEnterprises.API.Services
     public class AdminOrderService : IAdminOrderService
     {
         private readonly IAdminOrderRepository _repository;
+        private readonly INotificationService _notificationService;
 
         public AdminOrderService(
-            IAdminOrderRepository repository)
+            IAdminOrderRepository repository,
+            INotificationService notificationService)
         {
             _repository = repository;
+            _notificationService = notificationService;
         }
 
         // =========================
@@ -121,6 +125,26 @@ namespace ShantiEnterprises.API.Services
 
             await _repository.UpdateAsync(order);
 
+            // =========================
+            // CREATE NOTIFICATION
+            // =========================
+
+            await _notificationService.CreateAsync(
+                order.UserId,
+                new CreateNotificationDto
+                {
+                    Title = "Order Status Updated",
+
+                    Message =
+                        $"Your order {order.OrderNumber} status has been updated to {order.OrderStatus}.",
+
+                    Type = "Order",
+
+                    ReferenceType = "Order",
+
+                    ReferenceId = order.OrderId
+                });
+
             return MapToResponse(order);
         }
 
@@ -191,6 +215,26 @@ namespace ShantiEnterprises.API.Services
                 DateTime.UtcNow;
 
             await _repository.UpdateAsync(order);
+
+            // =========================
+            // CREATE NOTIFICATION
+            // =========================
+
+            await _notificationService.CreateAsync(
+                order.UserId,
+                new CreateNotificationDto
+                {
+                    Title = "Payment Status Updated",
+
+                    Message =
+                        $"Payment status for order {order.OrderNumber} has been updated to {order.PaymentStatus}.",
+
+                    Type = "Payment",
+
+                    ReferenceType = "Order",
+
+                    ReferenceId = order.OrderId
+                });
 
             return MapToResponse(order);
         }

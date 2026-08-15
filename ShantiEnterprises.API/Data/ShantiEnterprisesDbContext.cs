@@ -37,6 +37,7 @@ namespace ShantiEnterprises.API.Data
 
         public DbSet<Offer> Offers { get; set; }
         public DbSet<Payment> Payments { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -523,6 +524,34 @@ namespace ShantiEnterprises.API.Data
                     .WithMany()
                     .HasForeignKey(x => x.OrderId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+            // =========================
+            // NOTIFICATION
+            // =========================
+
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.HasKey(x => x.NotificationId);
+
+                entity.Property(x => x.Title)
+                    .HasMaxLength(200)
+                    .IsRequired();
+
+                entity.Property(x => x.Message)
+                    .HasMaxLength(1000)
+                    .IsRequired();
+
+                entity.Property(x => x.Type)
+                    .HasMaxLength(50);
+
+                entity.Property(x => x.ReferenceType)
+                    .HasMaxLength(50);
+
+                // User -> Notifications
+                entity.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

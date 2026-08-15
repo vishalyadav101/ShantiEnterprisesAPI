@@ -2,6 +2,7 @@
 using ShantiEnterprises.API.Interfaces;
 using ShantiEnterprises.API.Models;
 
+
 namespace ShantiEnterprises.API.Services
 {
     public class OrderService : IOrderService
@@ -10,17 +11,20 @@ namespace ShantiEnterprises.API.Services
         private readonly ICartRepository _cartRepository;
         private readonly IAddressRepository _addressRepository;
         private readonly IProductPriceTierRepository _priceTierRepository;
+        private readonly INotificationService _notificationService;
 
         public OrderService(
             IOrderRepository orderRepository,
             ICartRepository cartRepository,
             IAddressRepository addressRepository,
-            IProductPriceTierRepository priceTierRepository)
+            IProductPriceTierRepository priceTierRepository,
+            INotificationService notificationService)
         {
             _orderRepository = orderRepository;
             _cartRepository = cartRepository;
             _addressRepository = addressRepository;
             _priceTierRepository = priceTierRepository;
+            _notificationService = notificationService;
         }
 
         public async Task<OrderResponseDto> CreateOrderAsync(
@@ -241,6 +245,26 @@ namespace ShantiEnterprises.API.Services
 
             var createdOrder =
                 await _orderRepository.CreateAsync(order);
+
+            // =========================
+            // CREATE NOTIFICATION
+            // =========================
+
+            await _notificationService.CreateAsync(
+                userId,
+                new DTOs.Notification.CreateNotificationDto
+                {
+                    Title = "Order Placed Successfully",
+
+                    Message =
+                        $"Your order {createdOrder.OrderNumber} has been placed successfully.",
+
+                    Type = "Order",
+
+                    ReferenceType = "Order",
+
+                    ReferenceId = createdOrder.OrderId
+                });
 
             // =========================
             // 8. CLEAR CART

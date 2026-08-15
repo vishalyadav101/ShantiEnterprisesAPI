@@ -65,6 +65,11 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IWebsiteSettingRepository, WebsiteSettingRepository>();
 builder.Services.AddScoped<IWebsiteSettingService, WebsiteSettingService>();
 
+builder.Services.AddScoped<IOfferRepository, OfferRepository>();
+builder.Services.AddScoped<IOfferService, OfferService>();
+
+
+
 
 
 

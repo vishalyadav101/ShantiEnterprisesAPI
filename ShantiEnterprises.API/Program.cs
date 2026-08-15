@@ -25,7 +25,7 @@ builder.Services.AddScoped<IProductPriceTierService, ProductPriceTierService>();
 builder.Services.AddScoped<IProductImageRepository, ProductImageRepository>();
 builder.Services.AddScoped<IProductImageService, ProductImageService>();
 
-builder.Services.AddHttpContextAccessor();
+ 
 
 
  builder.Services.AddHttpContextAccessor();
@@ -36,8 +36,25 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 
+// =========================
+// ORDER
+// =========================
+
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+
+
+// =========================
+// ADMIN ORDER
+// =========================
+
+builder.Services.AddScoped<IAdminOrderRepository, AdminOrderRepository>();
+builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
+
+
+// =========================
+// PAYMENT
+// =========================
 
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();

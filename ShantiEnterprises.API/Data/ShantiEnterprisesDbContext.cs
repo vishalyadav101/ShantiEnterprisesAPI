@@ -280,13 +280,44 @@ namespace ShantiEnterprises.API.Data
                 entity.HasKey(x => x.OrderId);
 
                 entity.Property(x => x.OrderNumber)
-                    .HasMaxLength(50)
+                    .HasMaxLength(100)
                     .IsRequired();
 
                 entity.HasIndex(x => x.OrderNumber)
                     .IsUnique();
 
-                // Shipping Address
+                // =========================
+                // AMOUNTS
+                // =========================
+
+                entity.Property(x => x.Subtotal)
+                    .HasPrecision(18, 2);
+
+                entity.Property(x => x.GSTAmount)
+                    .HasPrecision(18, 2);
+
+                entity.Property(x => x.ShippingCharge)
+                    .HasPrecision(18, 2);
+
+                entity.Property(x => x.GrandTotal)
+                    .HasPrecision(18, 2);
+
+                // =========================
+                // STATUS
+                // =========================
+
+                entity.Property(x => x.OrderStatus)
+                    .HasMaxLength(30)
+                    .IsRequired();
+
+                entity.Property(x => x.PaymentStatus)
+                    .HasMaxLength(30)
+                    .IsRequired();
+
+                // =========================
+                // SHIPPING ADDRESS
+                // =========================
+
                 entity.Property(x => x.ShippingFullName)
                     .HasMaxLength(100)
                     .IsRequired();
@@ -318,35 +349,15 @@ namespace ShantiEnterprises.API.Data
                     .HasMaxLength(100)
                     .IsRequired();
 
-                // Amounts
-                entity.Property(x => x.Subtotal)
-                    .HasPrecision(18, 2);
+                // =========================
+                // USER -> ORDERS
+                // =========================
 
-                entity.Property(x => x.GSTAmount)
-                    .HasPrecision(18, 2);
-
-                entity.Property(x => x.ShippingCharge)
-                    .HasPrecision(18, 2);
-
-                entity.Property(x => x.GrandTotal)
-                    .HasPrecision(18, 2);
-
-                // Status
-                entity.Property(x => x.OrderStatus)
-                    .HasMaxLength(30)
-                    .IsRequired();
-
-                entity.Property(x => x.PaymentStatus)
-                    .HasMaxLength(30)
-                    .IsRequired();
-
-                // User -> Orders
                 entity.HasOne(x => x.User)
                     .WithMany(x => x.Orders)
                     .HasForeignKey(x => x.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
-
 
             // =========================
             // ORDER ITEM
@@ -387,7 +398,7 @@ namespace ShantiEnterprises.API.Data
                     .WithMany()
                     .HasForeignKey(x => x.ProductId)
                     .OnDelete(DeleteBehavior.Restrict);
-            });
+            }); 
 
 
             // =========================

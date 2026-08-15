@@ -6,27 +6,35 @@
 
         public int UserId { get; set; }
 
-        public string OrderNumber { get; set; } = string.Empty;
+        public string OrderNumber { get; set; }
+            = string.Empty;
 
         // =========================
         // SHIPPING ADDRESS SNAPSHOT
         // =========================
 
-        public string ShippingFullName { get; set; } = string.Empty;
+        public string ShippingFullName { get; set; }
+            = string.Empty;
 
-        public string ShippingMobile { get; set; } = string.Empty;
+        public string ShippingMobile { get; set; }
+            = string.Empty;
 
-        public string ShippingAddressLine1 { get; set; } = string.Empty;
+        public string ShippingAddressLine1 { get; set; }
+            = string.Empty;
 
         public string? ShippingAddressLine2 { get; set; }
 
-        public string ShippingCity { get; set; } = string.Empty;
+        public string ShippingCity { get; set; }
+            = string.Empty;
 
-        public string ShippingState { get; set; } = string.Empty;
+        public string ShippingState { get; set; }
+            = string.Empty;
 
-        public string ShippingPincode { get; set; } = string.Empty;
+        public string ShippingPincode { get; set; }
+            = string.Empty;
 
-        public string ShippingCountry { get; set; } = "India";
+        public string ShippingCountry { get; set; }
+            = "India";
 
         // =========================
         // AMOUNT
@@ -44,15 +52,18 @@
         // STATUS
         // =========================
 
-        public string OrderStatus { get; set; } = "Pending";
+        public string OrderStatus { get; set; }
+            = "Pending";
 
-        public string PaymentStatus { get; set; } = "Pending";
+        public string PaymentStatus { get; set; }
+            = "Pending";
 
         // =========================
         // DATE
         // =========================
 
         public DateTime CreatedDate { get; set; }
+            = DateTime.UtcNow;
 
         public DateTime? UpdatedDate { get; set; }
 

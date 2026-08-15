@@ -36,6 +36,10 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 
+builder.Services.AddScoped<IAdminOrderRepository, AdminOrderRepository>();
+builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
+
+
 
 
 // Controllers

@@ -278,48 +278,70 @@ namespace ShantiEnterprises.API.Data
             {
                 entity.HasKey(x => x.OrderId);
 
+                entity.Property(x => x.OrderNumber)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.HasIndex(x => x.OrderNumber)
+                    .IsUnique();
+
                 entity.Property(x => x.Subtotal)
                     .HasPrecision(18, 2);
 
                 entity.Property(x => x.GSTAmount)
                     .HasPrecision(18, 2);
 
-                entity.Property(x => x.ShippingAmount)
+                entity.Property(x => x.ShippingCharge)
                     .HasPrecision(18, 2);
 
                 entity.Property(x => x.GrandTotal)
                     .HasPrecision(18, 2);
 
-                entity.Property(x => x.Status)
+                entity.Property(x => x.OrderStatus)
                     .HasMaxLength(30)
-                    .IsRequired();
-
-                entity.Property(x => x.PaymentMethod)
-                    .HasMaxLength(50)
                     .IsRequired();
 
                 entity.Property(x => x.PaymentStatus)
                     .HasMaxLength(30)
                     .IsRequired();
 
-                entity.Property(x => x.ShippingAddress)
-                    .HasMaxLength(1000);
+                entity.Property(x => x.ShippingFullName)
+                    .HasMaxLength(100)
+                    .IsRequired();
 
+                entity.Property(x => x.ShippingMobile)
+                    .HasMaxLength(15)
+                    .IsRequired();
+
+                entity.Property(x => x.ShippingAddressLine1)
+                    .HasMaxLength(250)
+                    .IsRequired();
+
+                entity.Property(x => x.ShippingAddressLine2)
+                    .HasMaxLength(250);
+
+                entity.Property(x => x.ShippingCity)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(x => x.ShippingState)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(x => x.ShippingPincode)
+                    .HasMaxLength(10)
+                    .IsRequired();
+
+                entity.Property(x => x.ShippingCountry)
+                    .HasMaxLength(100)
+                    .IsRequired();
 
                 // User -> Orders
                 entity.HasOne(x => x.User)
                     .WithMany(x => x.Orders)
                     .HasForeignKey(x => x.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
-
-
-                // Address -> Orders
-                entity.HasOne(x => x.Address)
-                    .WithMany()
-                    .HasForeignKey(x => x.AddressId)
-                    .OnDelete(DeleteBehavior.SetNull);
             });
-
 
             // =========================
             // ORDER ITEM
@@ -328,6 +350,14 @@ namespace ShantiEnterprises.API.Data
             modelBuilder.Entity<OrderItem>(entity =>
             {
                 entity.HasKey(x => x.OrderItemId);
+
+                entity.Property(x => x.ProductName)
+                    .HasMaxLength(200)
+                    .IsRequired();
+
+                entity.Property(x => x.SKU)
+                    .HasMaxLength(100)
+                    .IsRequired();
 
                 entity.Property(x => x.UnitPrice)
                     .HasPrecision(18, 2);
@@ -338,9 +368,8 @@ namespace ShantiEnterprises.API.Data
                 entity.Property(x => x.GSTAmount)
                     .HasPrecision(18, 2);
 
-                entity.Property(x => x.TotalAmount)
+                entity.Property(x => x.TotalPrice)
                     .HasPrecision(18, 2);
-
 
                 // Order -> OrderItems
                 entity.HasOne(x => x.Order)
@@ -348,13 +377,12 @@ namespace ShantiEnterprises.API.Data
                     .HasForeignKey(x => x.OrderId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-
                 // Product -> OrderItems
                 entity.HasOne(x => x.Product)
                     .WithMany()
                     .HasForeignKey(x => x.ProductId)
                     .OnDelete(DeleteBehavior.Restrict);
-            });
+            }); 
 
 
             // =========================

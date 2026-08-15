@@ -1,4 +1,4 @@
-﻿using ShantiEnterprises.API.DTOs.Cart;
+﻿ using ShantiEnterprises.API.DTOs.Cart;
 using ShantiEnterprises.API.Interfaces;
 using ShantiEnterprises.API.Models;
 
@@ -20,6 +20,10 @@ namespace ShantiEnterprises.API.Services
             _priceTierRepository = priceTierRepository;
         }
 
+        // =========================
+        // GET CART
+        // =========================
+
         public async Task<CartResponseDto> GetCartAsync(
             int userId)
         {
@@ -28,6 +32,10 @@ namespace ShantiEnterprises.API.Services
 
             return await BuildCartResponse(cart);
         }
+
+        // =========================
+        // ADD TO CART
+        // =========================
 
         public async Task<CartResponseDto> AddToCartAsync(
             int userId,
@@ -39,13 +47,20 @@ namespace ShantiEnterprises.API.Services
 
             if (product == null)
             {
-                throw new Exception("Product not found.");
+                throw new Exception(
+                    "Product not found.");
             }
 
             if (!product.IsActive)
             {
                 throw new Exception(
                     "This product is currently inactive.");
+            }
+
+            if (dto.Quantity <= 0)
+            {
+                throw new Exception(
+                    "Quantity must be greater than zero.");
             }
 
             if (dto.Quantity > product.Stock)
@@ -75,7 +90,8 @@ namespace ShantiEnterprises.API.Services
                         $"Only {product.Stock} units are available.");
                 }
 
-                existingItem.Quantity = finalQuantity;
+                existingItem.Quantity =
+                    finalQuantity;
 
                 existingItem.UnitPrice =
                     await CalculatePriceAsync(
@@ -99,10 +115,15 @@ namespace ShantiEnterprises.API.Services
                 var cartItem = new CartItem
                 {
                     CartId = cart.CartId,
+
                     ProductId = product.ProductId,
+
                     Quantity = finalQuantity,
+
                     UnitPrice = unitPrice,
-                    TotalPrice = unitPrice * finalQuantity
+
+                    TotalPrice =
+                        unitPrice * finalQuantity
                 };
 
                 await _cartRepository.AddItemAsync(
@@ -113,8 +134,18 @@ namespace ShantiEnterprises.API.Services
                 await _cartRepository.GetByUserIdAsync(
                     userId);
 
-            return await BuildCartResponse(cart!);
+            if (cart == null)
+            {
+                throw new Exception(
+                    "Unable to load cart.");
+            }
+
+            return await BuildCartResponse(cart);
         }
+
+        // =========================
+        // UPDATE CART ITEM
+        // =========================
 
         public async Task<CartResponseDto>
             UpdateCartItemAsync(
@@ -136,13 +167,27 @@ namespace ShantiEnterprises.API.Services
                     "Cart item not found.");
             }
 
+            // Product must exist
+            if (item.Product == null)
+            {
+                throw new Exception(
+                    "Product associated with this cart item was not found.");
+            }
+
+            if (dto.Quantity <= 0)
+            {
+                throw new Exception(
+                    "Quantity must be greater than zero.");
+            }
+
             if (dto.Quantity > item.Product.Stock)
             {
                 throw new Exception(
                     $"Only {item.Product.Stock} units are available.");
             }
 
-            item.Quantity = dto.Quantity;
+            item.Quantity =
+                dto.Quantity;
 
             item.UnitPrice =
                 await CalculatePriceAsync(
@@ -153,14 +198,25 @@ namespace ShantiEnterprises.API.Services
                 item.UnitPrice *
                 dto.Quantity;
 
-            await _cartRepository.UpdateItemAsync(item);
+            await _cartRepository.UpdateItemAsync(
+                item);
 
             cart =
                 await _cartRepository.GetByUserIdAsync(
                     userId);
 
-            return await BuildCartResponse(cart!);
+            if (cart == null)
+            {
+                throw new Exception(
+                    "Unable to load cart.");
+            }
+
+            return await BuildCartResponse(cart);
         }
+
+        // =========================
+        // REMOVE CART ITEM
+        // =========================
 
         public async Task<bool> RemoveCartItemAsync(
             int userId,
@@ -184,13 +240,22 @@ namespace ShantiEnterprises.API.Services
             return true;
         }
 
-        public async Task ClearCartAsync(int userId)
+        // =========================
+        // CLEAR CART
+        // =========================
+
+        public async Task ClearCartAsync(
+            int userId)
         {
             var cart =
                 await GetOrCreateCartAsync(userId);
 
             await _cartRepository.ClearAsync(cart);
         }
+
+        // =========================
+        // GET OR CREATE CART
+        // =========================
 
         private async Task<Cart> GetOrCreateCartAsync(
             int userId)
@@ -209,8 +274,13 @@ namespace ShantiEnterprises.API.Services
                 UserId = userId
             };
 
-            return await _cartRepository.CreateAsync(cart);
+            return await _cartRepository.CreateAsync(
+                cart);
         }
+
+        // =========================
+        // CALCULATE PRICE
+        // =========================
 
         private async Task<decimal> CalculatePriceAsync(
             Product product,
@@ -221,10 +291,13 @@ namespace ShantiEnterprises.API.Services
                     .GetByProductIdAsync(
                         product.ProductId);
 
-            var tier = tiers.FirstOrDefault(x =>
-                quantity >= x.MinQuantity &&
-                (!x.MaxQuantity.HasValue ||
-                 quantity <= x.MaxQuantity.Value));
+            var tier =
+                tiers.FirstOrDefault(x =>
+                    quantity >= x.MinQuantity &&
+                    (
+                        !x.MaxQuantity.HasValue ||
+                        quantity <= x.MaxQuantity.Value
+                    ));
 
             if (tier != null)
             {
@@ -234,19 +307,35 @@ namespace ShantiEnterprises.API.Services
             return product.WholesalePrice;
         }
 
+        // =========================
+        // BUILD CART RESPONSE
+        // =========================
+
         private async Task<CartResponseDto>
             BuildCartResponse(Cart cart)
         {
-            var items = new List<CartItemResponseDto>();
+            var items =
+                new List<CartItemResponseDto>();
 
             decimal subtotal = 0;
+
             decimal gstAmount = 0;
 
             foreach (var item in cart.CartItems)
             {
+                // Product must exist
+                if (item.Product == null)
+                {
+                    throw new Exception(
+                        $"Product not found for cart item {item.CartItemId}.");
+                }
+
+                var product =
+                    item.Product;
+
                 var unitPrice =
                     await CalculatePriceAsync(
-                        item.Product,
+                        product,
                         item.Quantity);
 
                 var totalPrice =
@@ -254,36 +343,39 @@ namespace ShantiEnterprises.API.Services
 
                 var itemGst =
                     totalPrice *
-                    item.Product.GSTPercentage /
+                    product.GSTPercentage /
                     100;
 
-                items.Add(new CartItemResponseDto
-                {
-                    CartItemId = item.CartItemId,
+                items.Add(
+                    new CartItemResponseDto
+                    {
+                        CartItemId =
+                            item.CartItemId,
 
-                    ProductId = item.ProductId,
+                        ProductId =
+                            item.ProductId,
 
-                    ProductName =
-                        item.Product.ProductName,
+                        ProductName =
+                            product.ProductName,
 
-                    ImageUrl =
-                        item.Product.ImageUrl,
+                        ImageUrl =
+                            product.ImageUrl,
 
-                    Quantity =
-                        item.Quantity,
+                        Quantity =
+                            item.Quantity,
 
-                    UnitPrice =
-                        unitPrice,
+                        UnitPrice =
+                            unitPrice,
 
-                    TotalPrice =
-                        totalPrice,
+                        TotalPrice =
+                            totalPrice,
 
-                    GSTPercentage =
-                        item.Product.GSTPercentage,
+                        GSTPercentage =
+                            product.GSTPercentage,
 
-                    GSTAmount =
-                        itemGst
-                });
+                        GSTAmount =
+                            itemGst
+                    });
 
                 subtotal += totalPrice;
 
@@ -292,15 +384,20 @@ namespace ShantiEnterprises.API.Services
 
             return new CartResponseDto
             {
-                CartId = cart.CartId,
+                CartId =
+                    cart.CartId,
 
-                UserId = cart.UserId,
+                UserId =
+                    cart.UserId,
 
-                Items = items,
+                Items =
+                    items,
 
-                Subtotal = subtotal,
+                Subtotal =
+                    subtotal,
 
-                GSTAmount = gstAmount,
+                GSTAmount =
+                    gstAmount,
 
                 GrandTotal =
                     subtotal + gstAmount,
@@ -310,4 +407,4 @@ namespace ShantiEnterprises.API.Services
             };
         }
     }
-}
+}   

@@ -62,6 +62,11 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
+builder.Services.AddScoped<IWebsiteSettingRepository, WebsiteSettingRepository>();
+builder.Services.AddScoped<IWebsiteSettingService, WebsiteSettingService>();
+
+
+
 
 
 

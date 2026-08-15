@@ -71,6 +71,10 @@ builder.Services.AddScoped<IOfferService, OfferService>();
 builder.Services.AddScoped<IBannerRepository, BannerRepository>();
 builder.Services.AddScoped<IBannerService, BannerService>();
 
+builder.Services.AddScoped<IBulkEnquiryRepository, BulkEnquiryRepository>();
+builder.Services.AddScoped<IBulkEnquiryService,  BulkEnquiryService>();
+
+  
 
 
 

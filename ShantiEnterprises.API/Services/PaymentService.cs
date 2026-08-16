@@ -1,6 +1,10 @@
-﻿using ShantiEnterprises.API.DTOs.Payment;
+﻿using Microsoft.Extensions.Options;
+using RazorpayClient = Razorpay.Api.RazorpayClient;
+using RazorpayUtils = Razorpay.Api.Utils;
+using ShantiEnterprises.API.DTOs.Payment;
 using ShantiEnterprises.API.Interfaces;
 using ShantiEnterprises.API.Models;
+using ShantiEnterprises.API.Settings;
 
 namespace ShantiEnterprises.API.Services
 {
@@ -8,24 +12,26 @@ namespace ShantiEnterprises.API.Services
     {
         private readonly IPaymentRepository _paymentRepository;
         private readonly IOrderRepository _orderRepository;
+        private readonly RazorpaySettings _razorpaySettings;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
-            IOrderRepository orderRepository)
+            IOrderRepository orderRepository,
+            IOptions<RazorpaySettings> razorpaySettings)
         {
             _paymentRepository = paymentRepository;
             _orderRepository = orderRepository;
+            _razorpaySettings = razorpaySettings.Value;
         }
 
-        // =========================
+        // =========================================================
         // CREATE PAYMENT
-        // =========================
+        // =========================================================
 
         public async Task<PaymentResponseDto> CreatePaymentAsync(
             int userId,
             CreatePaymentDto dto)
         {
-            // Get order
             var order =
                 await _orderRepository.GetByIdAsync(
                     dto.OrderId,
@@ -36,7 +42,6 @@ namespace ShantiEnterprises.API.Services
                 throw new Exception("Order not found.");
             }
 
-            // Check existing payment
             var existingPayment =
                 await _paymentRepository.GetByOrderIdAsync(
                     dto.OrderId);
@@ -47,7 +52,6 @@ namespace ShantiEnterprises.API.Services
                     "Payment already exists for this order.");
             }
 
-            // Validate payment method
             var paymentMethod =
                 dto.PaymentMethod.Trim();
 
@@ -57,29 +61,41 @@ namespace ShantiEnterprises.API.Services
                 &&
                 !paymentMethod.Equals(
                     "Online",
+                    StringComparison.OrdinalIgnoreCase)
+                &&
+                !paymentMethod.Equals(
+                    "Razorpay",
                     StringComparison.OrdinalIgnoreCase))
             {
                 throw new Exception(
-                    "Invalid payment method. Use CashOnDelivery or Online.");
+                    "Invalid payment method. Use CashOnDelivery, Online or Razorpay.");
             }
 
-            // Normalize payment method
-            paymentMethod =
-                paymentMethod.Equals(
+            if (paymentMethod.Equals(
                     "CashOnDelivery",
-                    StringComparison.OrdinalIgnoreCase)
-                    ? "CashOnDelivery"
-                    : "Online";
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                paymentMethod = "CashOnDelivery";
+            }
+            else if (paymentMethod.Equals(
+                         "Razorpay",
+                         StringComparison.OrdinalIgnoreCase))
+            {
+                paymentMethod = "Razorpay";
+            }
+            else
+            {
+                paymentMethod = "Online";
+            }
 
             string paymentStatus;
             string orderStatus;
             string remarks;
-
             DateTime? paymentDate;
 
-            // =========================
+            // =====================================================
             // COD
-            // =========================
+            // =====================================================
 
             if (paymentMethod == "CashOnDelivery")
             {
@@ -94,9 +110,9 @@ namespace ShantiEnterprises.API.Services
             }
             else
             {
-                // =========================
-                // ONLINE
-                // =========================
+                // =================================================
+                // ONLINE / RAZORPAY
+                // =================================================
 
                 paymentStatus = "Pending";
 
@@ -107,10 +123,6 @@ namespace ShantiEnterprises.API.Services
                 remarks =
                     "Online payment initiated. Awaiting payment gateway confirmation.";
             }
-
-            // =========================
-            // CREATE PAYMENT
-            // =========================
 
             var payment = new Payment
             {
@@ -135,10 +147,6 @@ namespace ShantiEnterprises.API.Services
                 await _paymentRepository.CreateAsync(
                     payment);
 
-            // =========================
-            // UPDATE ORDER
-            // =========================
-
             order.OrderStatus = orderStatus;
 
             order.PaymentStatus = paymentStatus;
@@ -147,22 +155,344 @@ namespace ShantiEnterprises.API.Services
 
             await _orderRepository.UpdateAsync(order);
 
-            // Attach order for response
             createdPayment.Order = order;
 
             return MapToResponse(createdPayment);
         }
 
-        // =========================
+        // =========================================================
+        // CREATE RAZORPAY ORDER
+        // =========================================================
+
+        public async Task<PaymentResponseDto> CreateRazorpayOrderAsync(
+            int userId,
+            int orderId)
+        {
+            var order =
+                await _orderRepository.GetByIdAsync(
+                    orderId,
+                    userId);
+
+            if (order == null)
+            {
+                throw new Exception("Order not found.");
+            }
+
+            if (order.OrderStatus != "Pending")
+            {
+                throw new Exception(
+                    "Payment can only be initiated for a pending order.");
+            }
+
+            var existingPayment =
+                await _paymentRepository.GetByOrderIdAsync(
+                    orderId);
+
+            // If Razorpay order already exists,
+            // return existing payment information.
+            if (existingPayment != null &&
+                !string.IsNullOrWhiteSpace(
+                    existingPayment.RazorpayOrderId))
+            {
+                existingPayment.Order = order;
+
+                return MapToResponse(existingPayment);
+            }
+
+            // Razorpay amount is required in paise.
+            var amountInPaise =
+                Convert.ToInt64(
+                    Math.Round(
+                        order.GrandTotal * 100,
+                        0,
+                        MidpointRounding.AwayFromZero));
+
+            if (amountInPaise <= 0)
+            {
+                throw new Exception(
+                    "Order amount must be greater than zero.");
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                    _razorpaySettings.KeyId)
+                ||
+                string.IsNullOrWhiteSpace(
+                    _razorpaySettings.KeySecret))
+            {
+                throw new Exception(
+                    "Razorpay API keys are not configured.");
+            }
+
+            var client =
+                new RazorpayClient(
+                    _razorpaySettings.KeyId,
+                    _razorpaySettings.KeySecret);
+
+            var options =
+                new Dictionary<string, object>
+                {
+                    {
+                        "amount",
+                        amountInPaise
+                    },
+                    {
+                        "currency",
+                        _razorpaySettings.Currency
+                    },
+                    {
+                        "receipt",
+                        order.OrderNumber
+                    }
+                };
+
+            var razorpayOrder =
+                client.Order.Create(options);
+
+            var razorpayOrderId =
+                razorpayOrder["id"]?.ToString();
+
+            if (string.IsNullOrWhiteSpace(
+                    razorpayOrderId))
+            {
+                throw new Exception(
+                    "Failed to create Razorpay order.");
+            }
+
+            Payment payment;
+
+            // =====================================================
+            // CREATE NEW PAYMENT
+            // =====================================================
+
+            if (existingPayment == null)
+            {
+                payment = new Payment
+                {
+                    OrderId = order.OrderId,
+
+                    PaymentMethod = "Razorpay",
+
+                    TransactionId = string.Empty,
+
+                    Amount = order.GrandTotal,
+
+                    PaymentStatus = "Pending",
+
+                    PaymentDate = null,
+
+                    RazorpayOrderId =
+                        razorpayOrderId,
+
+                    RazorpayPaymentId = null,
+
+                    RazorpaySignature = null,
+
+                    Remarks =
+                        "Razorpay order created. Awaiting payment."
+                };
+
+                payment =
+                    await _paymentRepository.CreateAsync(
+                        payment);
+            }
+            else
+            {
+                // =================================================
+                // UPDATE EXISTING PAYMENT
+                // =================================================
+
+                existingPayment.PaymentMethod =
+                    "Razorpay";
+
+                existingPayment.Amount =
+                    order.GrandTotal;
+
+                existingPayment.PaymentStatus =
+                    "Pending";
+
+                existingPayment.PaymentDate =
+                    null;
+
+                existingPayment.RazorpayOrderId =
+                    razorpayOrderId;
+
+                existingPayment.RazorpayPaymentId =
+                    null;
+
+                existingPayment.RazorpaySignature =
+                    null;
+
+                existingPayment.Remarks =
+                    "Razorpay order created. Awaiting payment.";
+
+                await _paymentRepository.UpdateAsync(
+                    existingPayment);
+
+                payment = existingPayment;
+            }
+
+            // Keep order pending until payment succeeds.
+            order.PaymentStatus = "Pending";
+
+            order.OrderStatus = "Pending";
+
+            order.UpdatedDate =
+                DateTime.UtcNow;
+
+            await _orderRepository.UpdateAsync(
+                order);
+
+            payment.Order = order;
+
+            return MapToResponse(payment);
+        }
+
+        // =========================================================
+        // VERIFY RAZORPAY PAYMENT
+        // =========================================================
+
+        public async Task<PaymentResponseDto>
+            VerifyRazorpayPaymentAsync(
+                int userId,
+                PaymentVerifyDto dto)
+        {
+            var payment =
+                await _paymentRepository.GetByIdAsync(
+                    dto.PaymentId);
+
+            if (payment == null)
+            {
+                throw new Exception(
+                    "Payment not found.");
+            }
+
+            if (payment.Order == null)
+            {
+                throw new Exception(
+                    "Payment order not found.");
+            }
+
+            if (payment.Order.UserId != userId)
+            {
+                throw new Exception(
+                    "You are not authorized to verify this payment.");
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                    payment.RazorpayOrderId))
+            {
+                throw new Exception(
+                    "Razorpay order was not created.");
+            }
+
+            if (!string.Equals(
+                    payment.RazorpayOrderId,
+                    dto.RazorpayOrderId,
+                    StringComparison.Ordinal))
+            {
+                throw new Exception(
+                    "Razorpay order ID mismatch.");
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                    dto.RazorpayPaymentId))
+            {
+                throw new Exception(
+                    "Razorpay payment ID is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                    dto.RazorpaySignature))
+            {
+                throw new Exception(
+                    "Razorpay signature is required.");
+            }
+
+            var options =
+                new Dictionary<string, string>
+                {
+                    {
+                        "razorpay_order_id",
+                        payment.RazorpayOrderId
+                    },
+                    {
+                        "razorpay_payment_id",
+                        dto.RazorpayPaymentId
+                    },
+                    {
+                        "razorpay_signature",
+                        dto.RazorpaySignature
+                    }
+                };
+
+            try
+            {
+                RazorpayUtils.verifyPaymentSignature(options);
+            }
+            catch
+            {
+                payment.PaymentStatus =
+                    "Failed";
+
+                payment.Remarks =
+                    "Razorpay signature verification failed.";
+
+                await _paymentRepository.UpdateAsync(
+                    payment);
+
+                throw new Exception(
+                    "Payment verification failed.");
+            }
+
+            // =====================================================
+            // PAYMENT SUCCESS
+            // =====================================================
+
+            payment.RazorpayPaymentId =
+                dto.RazorpayPaymentId;
+
+            payment.RazorpaySignature =
+                dto.RazorpaySignature;
+
+            payment.TransactionId =
+                dto.RazorpayPaymentId;
+
+            payment.PaymentStatus =
+                "Paid";
+
+            payment.PaymentDate =
+                DateTime.UtcNow;
+
+            payment.Remarks =
+                "Razorpay payment verified successfully.";
+
+            payment.Order.PaymentStatus =
+                "Paid";
+
+            payment.Order.OrderStatus =
+                "Confirmed";
+
+            payment.Order.UpdatedDate =
+                DateTime.UtcNow;
+
+            await _paymentRepository.UpdateAsync(
+                payment);
+
+            await _orderRepository.UpdateAsync(
+                payment.Order);
+
+            return MapToResponse(payment);
+        }
+
+        // =========================================================
         // GET PAYMENT BY ORDER
-        // =========================
+        // =========================================================
 
         public async Task<PaymentResponseDto?>
             GetPaymentByOrderIdAsync(
                 int userId,
                 int orderId)
         {
-            // First verify that order belongs to user
             var order =
                 await _orderRepository.GetByIdAsync(
                     orderId,
@@ -185,9 +515,9 @@ namespace ShantiEnterprises.API.Services
             return MapToResponse(payment);
         }
 
-        // =========================
+        // =========================================================
         // GENERATE TRANSACTION ID
-        // =========================
+        // =========================================================
 
         private static string GenerateTransactionId(
             string paymentMethod)
@@ -202,18 +532,20 @@ namespace ShantiEnterprises.API.Services
                 .ToUpper();
         }
 
-        // =========================
+        // =========================================================
         // RESPONSE MAPPING
-        // =========================
+        // =========================================================
 
         private static PaymentResponseDto MapToResponse(
             Payment payment)
         {
             return new PaymentResponseDto
             {
-                PaymentId = payment.PaymentId,
+                PaymentId =
+                    payment.PaymentId,
 
-                OrderId = payment.OrderId,
+                OrderId =
+                    payment.OrderId,
 
                 OrderNumber =
                     payment.Order?.OrderNumber
@@ -230,6 +562,12 @@ namespace ShantiEnterprises.API.Services
 
                 PaymentStatus =
                     payment.PaymentStatus,
+
+                RazorpayOrderId =
+                    payment.RazorpayOrderId,
+
+                RazorpayPaymentId =
+                    payment.RazorpayPaymentId,
 
                 PaymentDate =
                     payment.PaymentDate,

@@ -7,9 +7,13 @@ using System.Text;
 using ShantiEnterprises.API.Interfaces;
 using ShantiEnterprises.API.Services;
 using ShantiEnterprises.API.Repositories;
+using ShantiEnterprises.API.Settings;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<RazorpaySettings>(builder.Configuration.GetSection("Razorpay"));
+
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 

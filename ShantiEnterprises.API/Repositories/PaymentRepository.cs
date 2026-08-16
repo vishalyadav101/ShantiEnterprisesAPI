@@ -42,5 +42,13 @@ namespace ShantiEnterprises.API.Repositories
                 .FirstOrDefaultAsync(x =>
                     x.PaymentId == paymentId);
         }
+
+        public async Task UpdateAsync(
+            Payment payment)
+        {
+            _context.Payments.Update(payment);
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

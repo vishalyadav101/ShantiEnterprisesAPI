@@ -16,6 +16,10 @@
 
         public string PaymentStatus { get; set; } = string.Empty;
 
+        public string? RazorpayOrderId { get; set; }
+
+        public string? RazorpayPaymentId { get; set; }
+
         public DateTime? PaymentDate { get; set; }
 
         public string? Remarks { get; set; }

@@ -11,5 +11,8 @@ namespace ShantiEnterprises.API.Interfaces
 
         Task<Payment?> GetByIdAsync(
             int paymentId);
+
+        Task UpdateAsync(
+            Payment payment);
     }
 }

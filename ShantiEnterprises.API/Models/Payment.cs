@@ -8,6 +8,12 @@
 
         public string PaymentMethod { get; set; } = string.Empty;
 
+        public string? RazorpayOrderId { get; set; }
+
+        public string? RazorpayPaymentId { get; set; }
+
+        public string? RazorpaySignature { get; set; }
+
         public string TransactionId { get; set; } = string.Empty;
 
         public decimal Amount { get; set; }

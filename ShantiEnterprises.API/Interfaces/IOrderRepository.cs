@@ -13,5 +13,9 @@ namespace ShantiEnterprises.API.Interfaces
             int userId);
 
         Task UpdateAsync(Order order);
+
+        Task ExecuteInTransactionAsync(
+    Func<Task> action);
+
     }
 }

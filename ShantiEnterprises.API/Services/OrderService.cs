@@ -12,24 +12,27 @@ namespace ShantiEnterprises.API.Services
         private readonly IAddressRepository _addressRepository;
         private readonly IProductPriceTierRepository _priceTierRepository;
         private readonly INotificationService _notificationService;
+        private readonly IInventoryRepository _inventoryRepository;
 
         public OrderService(
             IOrderRepository orderRepository,
             ICartRepository cartRepository,
             IAddressRepository addressRepository,
             IProductPriceTierRepository priceTierRepository,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IInventoryRepository inventoryRepository)
         {
             _orderRepository = orderRepository;
             _cartRepository = cartRepository;
             _addressRepository = addressRepository;
             _priceTierRepository = priceTierRepository;
             _notificationService = notificationService;
+            _inventoryRepository = inventoryRepository;
         }
 
         public async Task<OrderResponseDto> CreateOrderAsync(
-            int userId,
-            CreateOrderDto dto)
+           int userId,
+           CreateOrderDto dto)
         {
             // =========================
             // 1. GET ADDRESS
@@ -136,7 +139,8 @@ namespace ShantiEnterprises.API.Services
 
                 orderItems.Add(new OrderItem
                 {
-                    ProductId = product.ProductId,
+                    ProductId =
+                        product.ProductId,
 
                     ProductName =
                         product.ProductName,
@@ -182,7 +186,8 @@ namespace ShantiEnterprises.API.Services
 
             var order = new Order
             {
-                UserId = userId,
+                UserId =
+                    userId,
 
                 OrderNumber =
                     GenerateOrderNumber(),
@@ -239,46 +244,133 @@ namespace ShantiEnterprises.API.Services
                     orderItems
             };
 
-            // =========================
-            // 7. SAVE ORDER
-            // =========================
+            // =====================================================
+            // 7. ORDER + INVENTORY + CART TRANSACTION
+            // =====================================================
 
-            var createdOrder =
-                await _orderRepository.CreateAsync(order);
+            Order createdOrder = null!;
 
-            // =========================
-            // CREATE NOTIFICATION
-            // =========================
+            await _orderRepository.ExecuteInTransactionAsync(
+                async () =>
+                {
+                    // =========================
+                    // SAVE ORDER
+                    // =========================
+
+                    createdOrder =
+                        await _orderRepository.CreateAsync(
+                            order);
+
+                    // =========================
+                    // UPDATE INVENTORY
+                    // =========================
+
+                    foreach (var cartItem in cart.CartItems)
+                    {
+                        var product =
+                            await _inventoryRepository
+                                .GetProductByIdAsync(
+                                    cartItem.ProductId);
+
+                        if (product == null)
+                        {
+                            throw new Exception(
+                                $"Product not found: {cartItem.ProductId}");
+                        }
+
+                        // Double-check stock
+                        if (product.Stock < cartItem.Quantity)
+                        {
+                            throw new Exception(
+                                $"Insufficient stock for product '{product.ProductName}'. " +
+                                $"Available stock: {product.Stock}, " +
+                                $"Requested quantity: {cartItem.Quantity}.");
+                        }
+
+                        // =========================
+                        // DEDUCT STOCK
+                        // =========================
+
+                        product.Stock -=
+                            cartItem.Quantity;
+
+                        // =========================
+                        // INVENTORY TRANSACTION
+                        // =========================
+
+                        var transaction =
+                            new InventoryTransaction
+                            {
+                                ProductId =
+                                    product.ProductId,
+
+                                Quantity =
+                                    -cartItem.Quantity,
+
+                                TransactionType =
+                                    "Order",
+
+                                ReferenceId =
+                                    createdOrder.OrderId,
+
+                                Remarks =
+                                    $"Stock deducted for order {createdOrder.OrderNumber}",
+
+                                CreatedDate =
+                                    DateTime.UtcNow
+                            };
+
+                        _inventoryRepository.AddTransaction(
+                            transaction);
+                    }
+
+                    // =========================
+                    // SAVE INVENTORY
+                    // =========================
+
+                    await _inventoryRepository
+                        .SaveChangesAsync();
+
+                    // =========================
+                    // CLEAR CART
+                    // =========================
+
+                    await _cartRepository.ClearAsync(
+                        cart);
+                });
+
+            // =====================================================
+            // 8. CREATE NOTIFICATION
+            // =====================================================
 
             await _notificationService.CreateAsync(
                 userId,
                 new DTOs.Notification.CreateNotificationDto
                 {
-                    Title = "Order Placed Successfully",
+                    Title =
+                        "Order Placed Successfully",
 
                     Message =
                         $"Your order {createdOrder.OrderNumber} has been placed successfully.",
 
-                    Type = "Order",
+                    Type =
+                        "Order",
 
-                    ReferenceType = "Order",
+                    ReferenceType =
+                        "Order",
 
-                    ReferenceId = createdOrder.OrderId
+                    ReferenceId =
+                        createdOrder.OrderId
                 });
-
-            // =========================
-            // 8. CLEAR CART
-            // =========================
-
-            await _cartRepository.ClearAsync(cart);
 
             // =========================
             // 9. RESPONSE
             // =========================
 
-            return MapToResponse(createdOrder);
+            return MapToResponse(
+                createdOrder);
         }
-
+        // ----- - -  -------------------------------------------------------------------------------
         // ==========================================
         // GET MY ORDERS
         // ==========================================

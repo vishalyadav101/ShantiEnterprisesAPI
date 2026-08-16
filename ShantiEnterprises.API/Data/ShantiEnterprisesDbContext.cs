@@ -32,6 +32,7 @@ namespace ShantiEnterprises.API.Data
         public DbSet<OrderItem> OrderItems { get; set; }
 
         public DbSet<BulkEnquiry> BulkEnquiries { get; set; }
+        public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
 
         public DbSet<Banner> Banners { get; set; }
 
@@ -602,6 +603,18 @@ namespace ShantiEnterprises.API.Data
 
                 entity.Property(x => x.FooterText)
                     .HasMaxLength(1000);
+            });
+
+            modelBuilder.Entity<InventoryTransaction>(entity =>
+            {
+                entity.ToTable("InventoryTransaction");
+
+                entity.HasKey(x => x.InventoryTransactionId);
+
+                entity.HasOne(x => x.Product)
+                    .WithMany(x => x.InventoryTransactions)
+                    .HasForeignKey(x => x.ProductId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

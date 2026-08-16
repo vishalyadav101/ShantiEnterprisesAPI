@@ -40,6 +40,7 @@ namespace ShantiEnterprises.API.Data
         public DbSet<Payment> Payments { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<WebsiteSetting> WebsiteSettings { get; set; }
+        public DbSet<Coupon> Coupons { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -615,6 +616,33 @@ namespace ShantiEnterprises.API.Data
                     .WithMany(x => x.InventoryTransactions)
                     .HasForeignKey(x => x.ProductId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            //===========================
+            modelBuilder.Entity<Coupon>(entity =>
+            {
+                entity.Property(x => x.DiscountValue)
+                    .HasPrecision(18, 2);
+
+                entity.Property(x => x.MinimumOrderAmount)
+                    .HasPrecision(18, 2);
+
+                entity.Property(x => x.MaximumDiscountAmount)
+                    .HasPrecision(18, 2);
+
+                entity.Property(x => x.Code)
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(x => x.Description)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.DiscountType)
+                    .HasMaxLength(20)
+                    .IsRequired();
+
+                entity.HasIndex(x => x.Code)
+                    .IsUnique();
             });
         }
     }

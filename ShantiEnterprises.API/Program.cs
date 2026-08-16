@@ -67,14 +67,21 @@ builder.Services.AddScoped<IWebsiteSettingService, WebsiteSettingService>();
 
 builder.Services.AddScoped<IOfferRepository, OfferRepository>();
 builder.Services.AddScoped<IOfferService, OfferService>();
-
+    
 builder.Services.AddScoped<IBannerRepository, BannerRepository>();
 builder.Services.AddScoped<IBannerService, BannerService>();
 
 builder.Services.AddScoped<IBulkEnquiryRepository, BulkEnquiryRepository>();
 builder.Services.AddScoped<IBulkEnquiryService,  BulkEnquiryService>();
 
-  
+builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+
+
+
+
+
+
 
 
 

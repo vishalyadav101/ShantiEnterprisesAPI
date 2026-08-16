@@ -15,6 +15,7 @@
         public decimal WholesalePrice { get; set; }
 
         public int Stock { get; set; }
+        public int ReorderLevel { get; set; } = 10;
 
         public decimal GSTPercentage { get; set; }
 
@@ -36,5 +37,8 @@
 
         public ICollection<BulkEnquiry> BulkEnquiries { get; set; }
     = new List<BulkEnquiry>();
+
+        public ICollection<InventoryTransaction> InventoryTransactions { get; set; }
+    = new List<InventoryTransaction>();
     }
 }

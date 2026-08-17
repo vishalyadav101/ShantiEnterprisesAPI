@@ -84,6 +84,11 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<ICouponRepository, CouponRepository>();
 builder.Services.AddScoped<ICouponService, CouponService>();
 
+builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
+
+builder.Services.AddScoped<IWishlistService, WishlistService>();
+
+
 
 
 

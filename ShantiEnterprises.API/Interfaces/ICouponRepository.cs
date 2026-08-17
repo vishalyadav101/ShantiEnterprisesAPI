@@ -17,6 +17,7 @@ namespace ShantiEnterprises.API.Interfaces
 
         Task UpdateAsync(
             Coupon coupon);
+        void Update(Coupon coupon);
 
         Task DeleteAsync(
             Coupon coupon);

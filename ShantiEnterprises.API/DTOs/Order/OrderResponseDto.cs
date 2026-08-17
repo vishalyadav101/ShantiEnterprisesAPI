@@ -25,12 +25,19 @@
 
         public string ShippingCountry { get; set; } = string.Empty;
 
-        // Amounts
+        // =========================
+        // AMOUNTS
+        // =========================
+
         public decimal Subtotal { get; set; }
 
         public decimal GSTAmount { get; set; }
 
         public decimal ShippingCharge { get; set; }
+
+        public decimal CouponDiscount { get; set; }
+
+        public string? CouponCode { get; set; }
 
         public decimal GrandTotal { get; set; }
 

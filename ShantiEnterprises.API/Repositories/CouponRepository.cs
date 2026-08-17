@@ -75,7 +75,10 @@ namespace ShantiEnterprises.API.Repositories
 
             await _context.SaveChangesAsync();
         }
-
+        public void Update(Coupon coupon)
+        {
+            _context.Coupons.Update(coupon);
+        }
         // ==========================================
         // DELETE
         // ==========================================

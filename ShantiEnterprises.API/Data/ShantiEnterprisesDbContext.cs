@@ -303,6 +303,9 @@ namespace ShantiEnterprises.API.Data
                 entity.Property(x => x.ShippingCharge)
                     .HasPrecision(18, 2);
 
+                entity.Property(x => x.CouponDiscount)
+                    .HasPrecision(18, 2);
+
                 entity.Property(x => x.GrandTotal)
                     .HasPrecision(18, 2);
 

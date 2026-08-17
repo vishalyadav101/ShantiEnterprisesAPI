@@ -2,7 +2,6 @@
 using ShantiEnterprises.API.Interfaces;
 using ShantiEnterprises.API.Models;
 
-
 namespace ShantiEnterprises.API.Services
 {
     public class OrderService : IOrderService
@@ -13,6 +12,7 @@ namespace ShantiEnterprises.API.Services
         private readonly IProductPriceTierRepository _priceTierRepository;
         private readonly INotificationService _notificationService;
         private readonly IInventoryRepository _inventoryRepository;
+        private readonly ICouponRepository _couponRepository;
 
         public OrderService(
             IOrderRepository orderRepository,
@@ -20,7 +20,8 @@ namespace ShantiEnterprises.API.Services
             IAddressRepository addressRepository,
             IProductPriceTierRepository priceTierRepository,
             INotificationService notificationService,
-            IInventoryRepository inventoryRepository)
+            IInventoryRepository inventoryRepository,
+            ICouponRepository couponRepository)
         {
             _orderRepository = orderRepository;
             _cartRepository = cartRepository;
@@ -28,11 +29,16 @@ namespace ShantiEnterprises.API.Services
             _priceTierRepository = priceTierRepository;
             _notificationService = notificationService;
             _inventoryRepository = inventoryRepository;
+            _couponRepository = couponRepository;
         }
 
+        // ==========================================
+        // CREATE ORDER
+        // ==========================================
+
         public async Task<OrderResponseDto> CreateOrderAsync(
-           int userId,
-           CreateOrderDto dto)
+            int userId,
+            CreateOrderDto dto)
         {
             // =========================
             // 1. GET ADDRESS
@@ -172,13 +178,124 @@ namespace ShantiEnterprises.API.Services
             decimal shippingCharge = 0;
 
             // =========================
+            // COUPON
+            // =========================
+
+            decimal couponDiscount = 0;
+
+            string? couponCode = null;
+
+            // Keep coupon outside transaction
+            // so it can be used later inside transaction
+            Coupon? appliedCoupon = null;
+
+            if (!string.IsNullOrWhiteSpace(dto.CouponCode))
+            {
+                couponCode =
+                    dto.CouponCode
+                        .Trim()
+                        .ToUpper();
+
+                appliedCoupon =
+                    await _couponRepository.GetByCodeAsync(
+                        couponCode);
+
+                if (appliedCoupon == null)
+                {
+                    throw new Exception(
+                        "Invalid coupon code.");
+                }
+
+                var now = DateTime.UtcNow;
+
+                if (!appliedCoupon.IsActive)
+                {
+                    throw new Exception(
+                        "This coupon is inactive.");
+                }
+
+                if (now < appliedCoupon.StartDate)
+                {
+                    throw new Exception(
+                        "This coupon is not active yet.");
+                }
+
+                if (now > appliedCoupon.EndDate)
+                {
+                    throw new Exception(
+                        "This coupon has expired.");
+                }
+
+                if (appliedCoupon.UsageLimit.HasValue &&
+                    appliedCoupon.UsedCount >=
+                    appliedCoupon.UsageLimit.Value)
+                {
+                    throw new Exception(
+                        "This coupon usage limit has been reached.");
+                }
+
+                if (appliedCoupon.MinimumOrderAmount.HasValue &&
+                    subtotal <
+                    appliedCoupon.MinimumOrderAmount.Value)
+                {
+                    throw new Exception(
+                        $"Minimum order amount should be {appliedCoupon.MinimumOrderAmount.Value:0.00}.");
+                }
+
+                // =========================
+                // CALCULATE DISCOUNT
+                // =========================
+
+                if (appliedCoupon.DiscountType == "Percentage")
+                {
+                    couponDiscount =
+                        subtotal *
+                        appliedCoupon.DiscountValue /
+                        100;
+
+                    // Maximum discount limit
+                    if (appliedCoupon.MaximumDiscountAmount.HasValue &&
+                        couponDiscount >
+                        appliedCoupon.MaximumDiscountAmount.Value)
+                    {
+                        couponDiscount =
+                            appliedCoupon.MaximumDiscountAmount.Value;
+                    }
+                }
+                else if (appliedCoupon.DiscountType == "Fixed")
+                {
+                    couponDiscount =
+                        appliedCoupon.DiscountValue;
+                }
+
+                // Discount cannot exceed subtotal
+                if (couponDiscount > subtotal)
+                {
+                    couponDiscount = subtotal;
+                }
+
+                couponDiscount =
+                    Math.Round(
+                        couponDiscount,
+                        2);
+            }
+
+            // =========================
             // 5. GRAND TOTAL
             // =========================
 
             decimal grandTotal =
                 subtotal +
                 gstAmount +
-                shippingCharge;
+                shippingCharge -
+                couponDiscount;
+
+            grandTotal =
+                Math.Max(
+                    0,
+                    Math.Round(
+                        grandTotal,
+                        2));
 
             // =========================
             // 6. CREATE ORDER
@@ -227,6 +344,12 @@ namespace ShantiEnterprises.API.Services
                 ShippingCharge =
                     shippingCharge,
 
+                CouponDiscount =
+                    couponDiscount,
+
+                CouponCode =
+                    couponCode,
+
                 GrandTotal =
                     grandTotal,
 
@@ -245,7 +368,7 @@ namespace ShantiEnterprises.API.Services
             };
 
             // =====================================================
-            // 7. ORDER + INVENTORY + CART TRANSACTION
+            // 7. ORDER + INVENTORY + COUPON + CART TRANSACTION
             // =====================================================
 
             Order createdOrder = null!;
@@ -332,6 +455,18 @@ namespace ShantiEnterprises.API.Services
                         .SaveChangesAsync();
 
                     // =========================
+                    // UPDATE COUPON USAGE
+                    // =========================
+
+                    if (appliedCoupon != null)
+                    {
+                        appliedCoupon.UsedCount++;
+
+                        _couponRepository.Update(
+                            appliedCoupon);
+                    }
+
+                    // =========================
                     // CLEAR CART
                     // =========================
 
@@ -370,13 +505,14 @@ namespace ShantiEnterprises.API.Services
             return MapToResponse(
                 createdOrder);
         }
-        // ----- - -  -------------------------------------------------------------------------------
+
         // ==========================================
         // GET MY ORDERS
         // ==========================================
 
         public async Task<List<OrderResponseDto>>
-            GetMyOrdersAsync(int userId)
+            GetMyOrdersAsync(
+                int userId)
         {
             var orders =
                 await _orderRepository.GetByUserIdAsync(
@@ -406,7 +542,8 @@ namespace ShantiEnterprises.API.Services
                 return null;
             }
 
-            return MapToResponse(order);
+            return MapToResponse(
+                order);
         }
 
         // ==========================================
@@ -498,6 +635,12 @@ namespace ShantiEnterprises.API.Services
 
                 ShippingCharge =
                     order.ShippingCharge,
+
+                CouponDiscount =
+                    order.CouponDiscount,
+
+                CouponCode =
+                    order.CouponCode,
 
                 GrandTotal =
                     order.GrandTotal,

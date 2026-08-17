@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ShantiEnterprises.API.Data;
 
@@ -11,9 +12,11 @@ using ShantiEnterprises.API.Data;
 namespace ShantiEnterprises.API.Migrations
 {
     [DbContext(typeof(ShantiEnterprisesDbContext))]
-    partial class ShantiEnterprisesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260817094929_AddCouponToOrder")]
+    partial class AddCouponToOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

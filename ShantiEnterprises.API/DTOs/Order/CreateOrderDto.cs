@@ -6,5 +6,7 @@ namespace ShantiEnterprises.API.DTOs.Order
     {
         [Required]
         public int AddressId { get; set; }
+
+        public string? CouponCode { get; set; }
     }
 }

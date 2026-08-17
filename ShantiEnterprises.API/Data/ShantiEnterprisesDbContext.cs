@@ -41,6 +41,9 @@ namespace ShantiEnterprises.API.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<WebsiteSetting> WebsiteSettings { get; set; }
         public DbSet<Coupon> Coupons { get; set; }
+        public DbSet<Wishlist> Wishlists { get; set; }
+
+        public DbSet<WishlistItem> WishlistItems { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -244,6 +247,50 @@ namespace ShantiEnterprises.API.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // =========================
+            // WISHLIST
+            // =========================
+
+            modelBuilder.Entity<Wishlist>(entity =>
+            {
+                entity.HasKey(x => x.WishlistId);
+
+                entity.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(x => x.UserId)
+                    .IsUnique();
+            });
+
+            // =========================
+            // WISHLIST ITEM
+            // =========================
+
+            modelBuilder.Entity<WishlistItem>(entity =>
+            {
+                entity.HasKey(x => x.WishlistItemId);
+
+                entity.HasOne(x => x.Wishlist)
+                    .WithMany(x => x.WishlistItems)
+                    .HasForeignKey(x => x.WishlistId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(x => x.Product)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProductId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Same product cannot be added twice
+                // in the same user's wishlist.
+                entity.HasIndex(x => new
+                {
+                    x.WishlistId,
+                    x.ProductId
+                })
+                .IsUnique();
+            });
 
             // =========================
             // CART ITEM

@@ -45,6 +45,7 @@ namespace ShantiEnterprises.API.Data
 
         public DbSet<WishlistItem> WishlistItems { get; set; }
         public DbSet<Review> Reviews { get; set; }
+        public DbSet<Shipment> Shipments { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -371,6 +372,7 @@ namespace ShantiEnterprises.API.Data
                 entity.HasIndex(x => x.OrderNumber)
                     .IsUnique();
 
+
                 // =========================
                 // AMOUNTS
                 // =========================
@@ -445,6 +447,49 @@ namespace ShantiEnterprises.API.Data
                     .WithMany(x => x.Orders)
                     .HasForeignKey(x => x.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ==========================================
+            // SHIPMENT
+            // ==========================================
+
+            modelBuilder.Entity<Shipment>(entity =>
+            {
+                entity.HasKey(x => x.ShipmentId);
+
+                entity.Property(x => x.CourierName)
+                    .HasMaxLength(100);
+
+                entity.Property(x => x.TrackingNumber)
+                    .HasMaxLength(100);
+
+                entity.Property(x => x.TrackingUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.ShippingMethod)
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(x => x.ShipmentStatus)
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(x => x.StatusDescription)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.DeliveredTo)
+                    .HasMaxLength(150);
+
+                entity.Property(x => x.DeliveryNotes)
+                    .HasMaxLength(1000);
+
+                entity.HasOne(x => x.Order)
+                    .WithOne(x => x.Shipment)
+                    .HasForeignKey<Shipment>(x => x.OrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(x => x.OrderId)
+                    .IsUnique();
             });
 
             // =========================

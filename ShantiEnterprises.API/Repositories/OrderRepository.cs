@@ -45,6 +45,15 @@ namespace ShantiEnterprises.API.Repositories
                     x.UserId == userId);
         }
 
+        public async Task<Order?> GetByIdForAdminAsync(
+         int orderId)
+        {
+            return await _context.Orders
+                .Include(x => x.OrderItems)
+                .FirstOrDefaultAsync(x =>
+                    x.OrderId == orderId);
+        }
+
         public async Task UpdateAsync(Order order)
         {
             _context.Orders.Update(order);

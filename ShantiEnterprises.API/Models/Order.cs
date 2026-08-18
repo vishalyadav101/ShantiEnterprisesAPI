@@ -79,5 +79,11 @@
 
         public ICollection<OrderItem> OrderItems { get; set; }
             = new List<OrderItem>();
+
+        // ==========================================
+        // SHIPMENT
+        // ==========================================
+
+        public Shipment? Shipment { get; set; }
     }
 }

@@ -6,16 +6,19 @@ namespace ShantiEnterprises.API.Interfaces
     {
         Task<Order> CreateAsync(Order order);
 
-        Task<List<Order>> GetByUserIdAsync(int userId);
+        Task<List<Order>> GetByUserIdAsync(
+            int userId);
 
         Task<Order?> GetByIdAsync(
             int orderId,
             int userId);
 
+        Task<Order?> GetByIdForAdminAsync(
+            int orderId);
+
         Task UpdateAsync(Order order);
 
         Task ExecuteInTransactionAsync(
-    Func<Task> action);
-
+            Func<Task> action);
     }
 }

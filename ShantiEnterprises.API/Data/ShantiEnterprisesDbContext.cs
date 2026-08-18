@@ -44,6 +44,7 @@ namespace ShantiEnterprises.API.Data
         public DbSet<Wishlist> Wishlists { get; set; }
 
         public DbSet<WishlistItem> WishlistItems { get; set; }
+        public DbSet<Review> Reviews { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -287,6 +288,39 @@ namespace ShantiEnterprises.API.Data
                 entity.HasIndex(x => new
                 {
                     x.WishlistId,
+                    x.ProductId
+                })
+                .IsUnique();
+            });
+
+            // =========================
+            // REVIEW
+            // =========================
+
+            modelBuilder.Entity<Review>(entity =>
+            {
+                entity.HasKey(x => x.ReviewId);
+
+                entity.Property(x => x.ReviewTitle)
+                    .HasMaxLength(200);
+
+                entity.Property(x => x.ReviewComment)
+                    .HasMaxLength(2000);
+
+                entity.HasOne(x => x.Product)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProductId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // One user can review a product only once
+                entity.HasIndex(x => new
+                {
+                    x.UserId,
                     x.ProductId
                 })
                 .IsUnique();

@@ -60,8 +60,34 @@ namespace ShantiEnterprises.API.Services
         // ==========================================
 
         public async Task<ShipmentResponseDto>
-            GetByOrderIdAsync(int orderId)
+            GetByOrderIdAsync(
+                int orderId,
+                int userId,
+                bool isAdmin)
         {
+            // =========================
+            // CUSTOMER OWNERSHIP CHECK
+            // =========================
+
+            if (!isAdmin)
+            {
+                var order =
+                    await _orderRepository
+                        .GetByIdAsync(
+                            orderId,
+                            userId);
+
+                if (order == null)
+                {
+                    throw new UnauthorizedAccessException(
+                        "You can only view shipment of your own order.");
+                }
+            }
+
+            // =========================
+            // GET SHIPMENT
+            // =========================
+
             var shipment =
                 await _shipmentRepository
                     .GetByOrderIdAsync(orderId);

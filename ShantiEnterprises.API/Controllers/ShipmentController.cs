@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ShantiEnterprises.API.DTOs.Shipment;
 using ShantiEnterprises.API.Interfaces;
+using System.Security.Claims;
 
 namespace ShantiEnterprises.API.Controllers
 {
@@ -23,6 +24,7 @@ namespace ShantiEnterprises.API.Controllers
         // GET ALL SHIPMENTS
         // ==========================================
 
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -47,6 +49,7 @@ namespace ShantiEnterprises.API.Controllers
         // GET SHIPMENT BY ID
         // ==========================================
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(
             int id)
@@ -72,17 +75,42 @@ namespace ShantiEnterprises.API.Controllers
         // GET SHIPMENT BY ORDER
         // ==========================================
 
+        [Authorize(Roles = "Admin,Customer")]
         [HttpGet("order/{orderId:int}")]
         public async Task<IActionResult> GetByOrderId(
             int orderId)
         {
             try
             {
+                var userIdClaim =
+                    User.FindFirstValue(
+                        ClaimTypes.NameIdentifier);
+
+                if (!int.TryParse(
+                    userIdClaim,
+                    out int userId))
+                {
+                    return Unauthorized(new
+                    {
+                        message = "Invalid user identity."
+                    });
+                }
+
+                var isAdmin =
+                    User.IsInRole("Admin");
+
                 var shipment =
                     await _shipmentService
-                        .GetByOrderIdAsync(orderId);
+                        .GetByOrderIdAsync(
+                            orderId,
+                            userId,
+                            isAdmin);
 
                 return Ok(shipment);
+            }
+            catch (UnauthorizedAccessException )
+            {
+                return Forbid();
             }
             catch (Exception ex)
             {
@@ -97,7 +125,7 @@ namespace ShantiEnterprises.API.Controllers
         // ==========================================
         // CREATE SHIPMENT
         // ==========================================
-
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Create(
             [FromBody] ShipmentCreateDto dto)
@@ -123,7 +151,7 @@ namespace ShantiEnterprises.API.Controllers
         // ==========================================
         // UPDATE SHIPMENT
         // ==========================================
-
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(
             int id,
@@ -150,7 +178,7 @@ namespace ShantiEnterprises.API.Controllers
         // ==========================================
         // DELETE SHIPMENT
         // ==========================================
-
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(
             int id)

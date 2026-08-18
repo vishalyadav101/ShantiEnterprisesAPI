@@ -24,7 +24,9 @@ namespace ShantiEnterprises.API.Interfaces
         // ==========================================
 
         Task<ShipmentResponseDto> GetByOrderIdAsync(
-            int orderId);
+            int orderId,
+            int userId,
+            bool isAdmin);
 
 
         // ==========================================

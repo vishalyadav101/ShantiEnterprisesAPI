@@ -125,7 +125,7 @@ namespace ShantiEnterprises.API.Controllers
 
                 return Ok(review);
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException )
             {
                 return Forbid();
             }

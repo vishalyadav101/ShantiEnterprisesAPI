@@ -94,6 +94,16 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IShipmentRepository, ShipmentRepository>();
 builder.Services.AddScoped<IShipmentService, ShipmentService>();
 
+// =========================
+// RETURN & REFUND
+// =========================
+
+builder.Services.AddScoped<IReturnRepository, ReturnRepository>();
+builder.Services.AddScoped<IReturnService, ReturnService>();
+
+builder.Services.AddScoped<IRefundRepository, RefundRepository>();
+builder.Services.AddScoped<IRefundService, RefundService>();
+
 
 
 

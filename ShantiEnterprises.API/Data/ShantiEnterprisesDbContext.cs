@@ -47,6 +47,10 @@ namespace ShantiEnterprises.API.Data
         public DbSet<Review> Reviews { get; set; }
         public DbSet<Shipment> Shipments { get; set; }
 
+        public DbSet<Return> Returns { get; set; }
+
+        public DbSet<Refund> Refunds { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -656,6 +660,116 @@ namespace ShantiEnterprises.API.Data
                     .WithMany()
                     .HasForeignKey(x => x.OrderId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ==========================================
+            // RETURN
+            // ==========================================
+
+            modelBuilder.Entity<Return>(entity =>
+            {
+                entity.HasKey(x => x.ReturnId);
+
+                entity.Property(x => x.Reason)
+                    .HasMaxLength(200)
+                    .IsRequired();
+
+                entity.Property(x => x.Description)
+                    .HasMaxLength(1000);
+
+                entity.Property(x => x.ReturnStatus)
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(x => x.AdminComment)
+                    .HasMaxLength(1000);
+
+
+                // ==========================================
+                // ORDER -> RETURNS
+                // ==========================================
+
+                entity.HasOne(x => x.Order)
+                    .WithMany()
+                    .HasForeignKey(x => x.OrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+
+                // ==========================================
+                // ORDER ITEM -> RETURNS
+                // ==========================================
+
+                entity.HasOne(x => x.OrderItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.OrderItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+
+                // ==========================================
+                // USER -> RETURNS
+                // ==========================================
+
+                entity.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ==========================================
+            // REFUND
+            // ==========================================
+
+            modelBuilder.Entity<Refund>(entity =>
+            {
+                entity.HasKey(x => x.RefundId);
+
+                entity.Property(x => x.RefundAmount)
+                    .HasPrecision(18, 2);
+
+                entity.Property(x => x.RefundStatus)
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(x => x.RefundReference)
+                    .HasMaxLength(150);
+
+                entity.Property(x => x.FailureReason)
+                    .HasMaxLength(1000);
+
+
+                // ==========================================
+                // RETURN -> REFUND
+                // ==========================================
+
+                entity.HasOne(x => x.Return)
+                    .WithOne(x => x.Refund)
+                    .HasForeignKey<Refund>(x => x.ReturnId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+
+                // ==========================================
+                // ORDER -> REFUND
+                // ==========================================
+
+                entity.HasOne(x => x.Order)
+                    .WithMany()
+                    .HasForeignKey(x => x.OrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+
+                // ==========================================
+                // PAYMENT -> REFUND
+                // ==========================================
+
+                entity.HasOne(x => x.Payment)
+                    .WithMany()
+                    .HasForeignKey(x => x.PaymentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+
+                // One return can have only one refund
+                entity.HasIndex(x => x.ReturnId)
+                    .IsUnique();
             });
             // =========================
             // NOTIFICATION

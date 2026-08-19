@@ -9,13 +9,16 @@ namespace ShantiEnterprises.API.Services
     {
         private readonly IAdminOrderRepository _repository;
         private readonly INotificationService _notificationService;
+        private readonly IPaymentRepository _paymentRepository;
 
         public AdminOrderService(
             IAdminOrderRepository repository,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IPaymentRepository paymentRepository)
         {
             _repository = repository;
             _notificationService = notificationService;
+            _paymentRepository = paymentRepository;
         }
 
         // =========================
@@ -170,14 +173,17 @@ namespace ShantiEnterprises.API.Services
             var paymentStatus =
                 dto.PaymentStatus.Trim();
 
-            // Validate payment status
+            // =========================
+            // VALIDATE PAYMENT STATUS
+            // =========================
+
             var validStatuses = new[]
             {
-                "Pending",
-                "Paid",
-                "Failed",
-                "Refunded"
-            };
+        "Pending",
+        "Paid",
+        "Failed",
+        "Refunded"
+    };
 
             if (!validStatuses.Contains(
                     paymentStatus,
@@ -188,7 +194,10 @@ namespace ShantiEnterprises.API.Services
                     "Allowed values: Pending, Paid, Failed, Refunded.");
             }
 
-            // Normalize
+            // =========================
+            // NORMALIZE
+            // =========================
+
             paymentStatus =
                 validStatuses.First(x =>
                     x.Equals(
@@ -196,7 +205,7 @@ namespace ShantiEnterprises.API.Services
                         StringComparison.OrdinalIgnoreCase));
 
             // =========================
-            // PAYMENT STATUS RULES
+            // REFUNDED VALIDATION
             // =========================
 
             if (paymentStatus == "Refunded")
@@ -207,6 +216,65 @@ namespace ShantiEnterprises.API.Services
                         "Payment can be refunded only after order cancellation.");
                 }
             }
+
+            // =========================
+            // PAYMENT RECORD
+            // =========================
+
+            var payment =
+                await _paymentRepository
+                    .GetByOrderIdAsync(orderId);
+
+            // =========================
+            // CREATE PAYMENT RECORD
+            // IF PAYMENT DOES NOT EXIST
+            // =========================
+
+            if (payment == null)
+            {
+                payment = new Payment
+                {
+                    OrderId = order.OrderId,
+                    PaymentMethod = "CashOnDelivery",
+                    TransactionId =
+                        $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
+                            .Substring(0, 28)
+                            .ToUpper(),
+                    Amount = order.GrandTotal,
+                    PaymentStatus = paymentStatus,
+                    PaymentDate =
+                        paymentStatus == "Paid"
+                            ? DateTime.UtcNow
+                            : null,
+                    Remarks =
+                        "Payment status updated by Admin."
+                };
+
+                payment =
+                    await _paymentRepository
+                        .CreateAsync(payment);
+            }
+            else
+            {
+                // =========================
+                // UPDATE EXISTING PAYMENT
+                // =========================
+
+                payment.PaymentStatus =
+                    paymentStatus;
+
+                payment.PaymentDate =
+                    paymentStatus == "Paid"
+                        ? DateTime.UtcNow
+                        : payment.PaymentDate;
+
+                await _paymentRepository
+                    .UpdateAsync(payment);
+            }
+
+            // =========================
+            // UPDATE ORDER
+            // =========================
 
             order.PaymentStatus =
                 paymentStatus;

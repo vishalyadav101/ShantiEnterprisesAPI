@@ -114,6 +114,9 @@ builder.Services.AddScoped<IAdminUserRepository, AdminUserRepository>();
 builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 
 
+builder.Services.AddScoped<IContactEnquiryRepository, ContactEnquiryRepository>();
+builder.Services.AddScoped<IContactEnquiryService, ContactEnquiryService>();
+
 
 
 

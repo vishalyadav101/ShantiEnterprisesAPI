@@ -12,17 +12,21 @@ namespace ShantiEnterprises.API.Services
     {
         private readonly IPaymentRepository _paymentRepository;
         private readonly IOrderRepository _orderRepository;
+        private readonly IAuditLogService _auditLogService;
         private readonly RazorpaySettings _razorpaySettings;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
             IOrderRepository orderRepository,
+            IAuditLogService auditLogService,
             IOptions<RazorpaySettings> razorpaySettings)
         {
             _paymentRepository = paymentRepository;
             _orderRepository = orderRepository;
+            _auditLogService = auditLogService;
             _razorpaySettings = razorpaySettings.Value;
         }
+
 
         // =========================================================
         // CREATE PAYMENT
@@ -157,8 +161,24 @@ namespace ShantiEnterprises.API.Services
 
             createdPayment.Order = order;
 
+
+            // =====================================================
+            // AUDIT LOG
+            // =====================================================
+
+            await _auditLogService.CreateAsync(
+                userId,
+                null,
+                "CREATE",
+                "Payment",
+                createdPayment.PaymentId,
+                $"Payment created for Order {order.OrderNumber}. Payment method: {paymentMethod}, Amount: {createdPayment.Amount}, Status: {paymentStatus}.",
+                null);
+
+
             return MapToResponse(createdPayment);
         }
+
 
         // =========================================================
         // CREATE RAZORPAY ORDER
@@ -344,8 +364,24 @@ namespace ShantiEnterprises.API.Services
 
             payment.Order = order;
 
+
+            // =====================================================
+            // AUDIT LOG
+            // =====================================================
+
+            await _auditLogService.CreateAsync(
+                userId,
+                null,
+                "CREATE",
+                "RazorpayOrder",
+                payment.PaymentId,
+                $"Razorpay order created for Order {order.OrderNumber}. RazorpayOrderId: {razorpayOrderId}, Amount: {payment.Amount}.",
+                null);
+
+
             return MapToResponse(payment);
         }
+
 
         // =========================================================
         // VERIFY RAZORPAY PAYMENT
@@ -440,6 +476,21 @@ namespace ShantiEnterprises.API.Services
                 await _paymentRepository.UpdateAsync(
                     payment);
 
+
+                // =================================================
+                // AUDIT LOG - FAILED PAYMENT
+                // =================================================
+
+                await _auditLogService.CreateAsync(
+                    userId,
+                    null,
+                    "VERIFY_FAILED",
+                    "Payment",
+                    payment.PaymentId,
+                    $"Razorpay payment verification failed for Order {payment.Order.OrderNumber}.",
+                    null);
+
+
                 throw new Exception(
                     "Payment verification failed.");
             }
@@ -481,8 +532,24 @@ namespace ShantiEnterprises.API.Services
             await _orderRepository.UpdateAsync(
                 payment.Order);
 
+
+            // =====================================================
+            // AUDIT LOG - PAYMENT VERIFIED
+            // =====================================================
+
+            await _auditLogService.CreateAsync(
+                userId,
+                null,
+                "VERIFY",
+                "Payment",
+                payment.PaymentId,
+                $"Razorpay payment verified successfully for Order {payment.Order.OrderNumber}. TransactionId: {payment.TransactionId}, Amount: {payment.Amount}.",
+                null);
+
+
             return MapToResponse(payment);
         }
+
 
         // =========================================================
         // GET PAYMENT BY ORDER
@@ -515,6 +582,7 @@ namespace ShantiEnterprises.API.Services
             return MapToResponse(payment);
         }
 
+
         // =========================================================
         // GENERATE TRANSACTION ID
         // =========================================================
@@ -531,6 +599,7 @@ namespace ShantiEnterprises.API.Services
                 .Substring(0, 28)
                 .ToUpper();
         }
+
 
         // =========================================================
         // RESPONSE MAPPING

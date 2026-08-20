@@ -104,6 +104,9 @@ builder.Services.AddScoped<IReturnService, ReturnService>();
 builder.Services.AddScoped<IRefundRepository, RefundRepository>();
 builder.Services.AddScoped<IRefundService, RefundService>();
 
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+
 
 
 

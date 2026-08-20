@@ -10,42 +10,44 @@ namespace ShantiEnterprises.API.Services
         private readonly IAdminOrderRepository _repository;
         private readonly INotificationService _notificationService;
         private readonly IPaymentRepository _paymentRepository;
+        private readonly IAuditLogService _auditLogService;
 
         public AdminOrderService(
             IAdminOrderRepository repository,
             INotificationService notificationService,
-            IPaymentRepository paymentRepository)
+            IPaymentRepository paymentRepository,
+            IAuditLogService auditLogService)
         {
             _repository = repository;
             _notificationService = notificationService;
             _paymentRepository = paymentRepository;
+            _auditLogService = auditLogService;
         }
 
-        // =========================
+        // ==========================================
         // GET ALL ORDERS
-        // =========================
+        // ADMIN
+        // ==========================================
 
-        public async Task<List<AdminOrderResponseDto>>
-            GetAllAsync()
+        public async Task<List<AdminOrderResponseDto>> GetAllAsync()
         {
-            var orders =
-                await _repository.GetAllAsync();
+            var orders = await _repository.GetAllAsync();
 
             return orders
                 .Select(MapToResponse)
                 .ToList();
         }
 
-        // =========================
+        // ==========================================
         // GET ORDER BY ID
-        // =========================
+        // ADMIN
+        // ==========================================
 
-        public async Task<AdminOrderResponseDto?>
-            GetByIdAsync(int orderId)
+        public async Task<AdminOrderResponseDto?> GetByIdAsync(
+            int orderId)
         {
             var order =
-                await _repository.GetByIdAsync(
-                    orderId);
+                await _repository.GetByIdAsync(orderId);
 
             if (order == null)
             {
@@ -55,9 +57,10 @@ namespace ShantiEnterprises.API.Services
             return MapToResponse(order);
         }
 
-        // =========================
+        // ==========================================
         // UPDATE ORDER STATUS
-        // =========================
+        // ADMIN
+        // ==========================================
 
         public async Task<AdminOrderResponseDto>
             UpdateOrderStatusAsync(
@@ -65,8 +68,7 @@ namespace ShantiEnterprises.API.Services
                 UpdateOrderStatusDto dto)
         {
             var order =
-                await _repository.GetByIdAsync(
-                    orderId);
+                await _repository.GetByIdAsync(orderId);
 
             if (order == null)
             {
@@ -77,7 +79,10 @@ namespace ShantiEnterprises.API.Services
             var status =
                 dto.OrderStatus.Trim();
 
-            // Validate status
+            // ==========================================
+            // VALID STATUSES
+            // ==========================================
+
             var validStatuses = new[]
             {
                 "Pending",
@@ -97,14 +102,20 @@ namespace ShantiEnterprises.API.Services
                     "Allowed values: Pending, Confirmed, Processing, Shipped, Delivered, Cancelled.");
             }
 
-            // Normalize status
+            // ==========================================
+            // NORMALIZE STATUS
+            // ==========================================
+
             status =
                 validStatuses.First(x =>
                     x.Equals(
                         status,
                         StringComparison.OrdinalIgnoreCase));
 
-            // Prevent changing delivered order
+            // ==========================================
+            // PREVENT DELIVERED ORDER CHANGE
+            // ==========================================
+
             if (order.OrderStatus == "Delivered" &&
                 status != "Delivered")
             {
@@ -112,7 +123,10 @@ namespace ShantiEnterprises.API.Services
                     "A delivered order cannot be changed.");
             }
 
-            // Prevent changing cancelled order
+            // ==========================================
+            // PREVENT CANCELLED ORDER CHANGE
+            // ==========================================
+
             if (order.OrderStatus == "Cancelled" &&
                 status != "Cancelled")
             {
@@ -120,40 +134,70 @@ namespace ShantiEnterprises.API.Services
                     "A cancelled order cannot be changed.");
             }
 
-            // Update
-            order.OrderStatus = status;
+            // ==========================================
+            // OLD STATUS
+            // ==========================================
+
+            var oldStatus =
+                order.OrderStatus;
+
+            // ==========================================
+            // UPDATE ORDER
+            // ==========================================
+
+            order.OrderStatus =
+                status;
 
             order.UpdatedDate =
                 DateTime.UtcNow;
 
             await _repository.UpdateAsync(order);
 
-            // =========================
-            // CREATE NOTIFICATION
-            // =========================
+            // ==========================================
+            // AUDIT LOG
+            // ==========================================
+
+            await _auditLogService.CreateAsync(
+                order.UserId,
+                null,
+                "UPDATE",
+                "Order",
+                order.OrderId,
+                $"Order status changed from {oldStatus} to {order.OrderStatus}.",
+                null
+            );
+
+            // ==========================================
+            // CUSTOMER NOTIFICATION
+            // ==========================================
 
             await _notificationService.CreateAsync(
                 order.UserId,
                 new CreateNotificationDto
                 {
-                    Title = "Order Status Updated",
+                    Title =
+                        "Order Status Updated",
 
                     Message =
                         $"Your order {order.OrderNumber} status has been updated to {order.OrderStatus}.",
 
-                    Type = "Order",
+                    Type =
+                        "Order",
 
-                    ReferenceType = "Order",
+                    ReferenceType =
+                        "Order",
 
-                    ReferenceId = order.OrderId
+                    ReferenceId =
+                        order.OrderId
                 });
 
             return MapToResponse(order);
         }
 
-        // =========================
+        // ==========================================
         // UPDATE PAYMENT STATUS
-        // =========================
+        // ADMIN
+        // ==========================================
 
         public async Task<AdminOrderResponseDto>
             UpdatePaymentStatusAsync(
@@ -161,8 +205,7 @@ namespace ShantiEnterprises.API.Services
                 UpdatePaymentStatusDto dto)
         {
             var order =
-                await _repository.GetByIdAsync(
-                    orderId);
+                await _repository.GetByIdAsync(orderId);
 
             if (order == null)
             {
@@ -173,17 +216,17 @@ namespace ShantiEnterprises.API.Services
             var paymentStatus =
                 dto.PaymentStatus.Trim();
 
-            // =========================
-            // VALIDATE PAYMENT STATUS
-            // =========================
+            // ==========================================
+            // VALID PAYMENT STATUSES
+            // ==========================================
 
             var validStatuses = new[]
             {
-        "Pending",
-        "Paid",
-        "Failed",
-        "Refunded"
-    };
+                "Pending",
+                "Paid",
+                "Failed",
+                "Refunded"
+            };
 
             if (!validStatuses.Contains(
                     paymentStatus,
@@ -194,9 +237,9 @@ namespace ShantiEnterprises.API.Services
                     "Allowed values: Pending, Paid, Failed, Refunded.");
             }
 
-            // =========================
-            // NORMALIZE
-            // =========================
+            // ==========================================
+            // NORMALIZE PAYMENT STATUS
+            // ==========================================
 
             paymentStatus =
                 validStatuses.First(x =>
@@ -204,9 +247,9 @@ namespace ShantiEnterprises.API.Services
                         paymentStatus,
                         StringComparison.OrdinalIgnoreCase));
 
-            // =========================
+            // ==========================================
             // REFUNDED VALIDATION
-            // =========================
+            // ==========================================
 
             if (paymentStatus == "Refunded")
             {
@@ -217,64 +260,80 @@ namespace ShantiEnterprises.API.Services
                 }
             }
 
-            // =========================
-            // PAYMENT RECORD
-            // =========================
+            // ==========================================
+            // OLD PAYMENT STATUS
+            // ==========================================
+
+            var oldPaymentStatus =
+                order.PaymentStatus;
+
+            // ==========================================
+            // GET PAYMENT
+            // ==========================================
 
             var payment =
                 await _paymentRepository
                     .GetByOrderIdAsync(orderId);
 
-            // =========================
-            // CREATE PAYMENT RECORD
-            // IF PAYMENT DOES NOT EXIST
-            // =========================
+            // ==========================================
+            // CREATE PAYMENT IF NOT EXISTS
+            // ==========================================
 
             if (payment == null)
             {
                 payment = new Payment
                 {
-                    OrderId = order.OrderId,
-                    PaymentMethod = "CashOnDelivery",
+                    OrderId =
+                        order.OrderId,
+
+                    PaymentMethod =
+                        "CashOnDelivery",
+
                     TransactionId =
                         $"ADMIN-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
                             .Substring(0, 28)
                             .ToUpper(),
-                    Amount = order.GrandTotal,
-                    PaymentStatus = paymentStatus,
+
+                    Amount =
+                        order.GrandTotal,
+
+                    PaymentStatus =
+                        paymentStatus,
+
                     PaymentDate =
                         paymentStatus == "Paid"
                             ? DateTime.UtcNow
                             : null,
+
                     Remarks =
                         "Payment status updated by Admin."
                 };
 
-                payment =
-                    await _paymentRepository
-                        .CreateAsync(payment);
+                await _paymentRepository
+                    .CreateAsync(payment);
             }
             else
             {
-                // =========================
+                // ==========================================
                 // UPDATE EXISTING PAYMENT
-                // =========================
+                // ==========================================
 
                 payment.PaymentStatus =
                     paymentStatus;
 
-                payment.PaymentDate =
-                    paymentStatus == "Paid"
-                        ? DateTime.UtcNow
-                        : payment.PaymentDate;
+                if (paymentStatus == "Paid")
+                {
+                    payment.PaymentDate =
+                        DateTime.UtcNow;
+                }
 
                 await _paymentRepository
                     .UpdateAsync(payment);
             }
 
-            // =========================
-            // UPDATE ORDER
-            // =========================
+            // ==========================================
+            // UPDATE ORDER PAYMENT STATUS
+            // ==========================================
 
             order.PaymentStatus =
                 paymentStatus;
@@ -284,32 +343,50 @@ namespace ShantiEnterprises.API.Services
 
             await _repository.UpdateAsync(order);
 
-            // =========================
-            // CREATE NOTIFICATION
-            // =========================
+            // ==========================================
+            // AUDIT LOG
+            // ==========================================
+
+            await _auditLogService.CreateAsync(
+                order.UserId,
+                null,
+                "UPDATE",
+                "Order",
+                order.OrderId,
+                $"Payment status changed from {oldPaymentStatus} to {order.PaymentStatus}.",
+                null
+            );
+
+            // ==========================================
+            // CUSTOMER NOTIFICATION
+            // ==========================================
 
             await _notificationService.CreateAsync(
                 order.UserId,
                 new CreateNotificationDto
                 {
-                    Title = "Payment Status Updated",
+                    Title =
+                        "Payment Status Updated",
 
                     Message =
                         $"Payment status for order {order.OrderNumber} has been updated to {order.PaymentStatus}.",
 
-                    Type = "Payment",
+                    Type =
+                        "Payment",
 
-                    ReferenceType = "Order",
+                    ReferenceType =
+                        "Order",
 
-                    ReferenceId = order.OrderId
+                    ReferenceId =
+                        order.OrderId
                 });
 
             return MapToResponse(order);
         }
 
-        // =========================
-        // MAP ORDER
-        // =========================
+        // ==========================================
+        // MAP ORDER RESPONSE
+        // ==========================================
 
         private static AdminOrderResponseDto
             MapToResponse(Order order)
@@ -388,9 +465,9 @@ namespace ShantiEnterprises.API.Services
             };
         }
 
-        // =========================
+        // ==========================================
         // MAP ORDER ITEM
-        // =========================
+        // ==========================================
 
         private static AdminOrderItemResponseDto
             MapItem(OrderItem item)

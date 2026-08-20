@@ -13,6 +13,7 @@ namespace ShantiEnterprises.API.Services
         private readonly INotificationService _notificationService;
         private readonly IInventoryRepository _inventoryRepository;
         private readonly ICouponRepository _couponRepository;
+        private readonly IAuditLogService _auditLogService;
 
         public OrderService(
             IOrderRepository orderRepository,
@@ -21,7 +22,8 @@ namespace ShantiEnterprises.API.Services
             IProductPriceTierRepository priceTierRepository,
             INotificationService notificationService,
             IInventoryRepository inventoryRepository,
-            ICouponRepository couponRepository)
+            ICouponRepository couponRepository,
+            IAuditLogService auditLogService)
         {
             _orderRepository = orderRepository;
             _cartRepository = cartRepository;
@@ -30,6 +32,7 @@ namespace ShantiEnterprises.API.Services
             _notificationService = notificationService;
             _inventoryRepository = inventoryRepository;
             _couponRepository = couponRepository;
+            _auditLogService = auditLogService;
         }
 
         // ==========================================
@@ -498,8 +501,21 @@ namespace ShantiEnterprises.API.Services
                         createdOrder.OrderId
                 });
 
+            // =====================================================
+            // 9. CREATE AUDIT LOG
+            // =====================================================
+
+            await _auditLogService.CreateAsync(
+                userId,
+                null,
+                "CREATE",
+                "Order",
+                createdOrder.OrderId,
+                $"Order {createdOrder.OrderNumber} created successfully.",
+                null);
+
             // =========================
-            // 9. RESPONSE
+            // 10. RESPONSE
             // =========================
 
             return MapToResponse(

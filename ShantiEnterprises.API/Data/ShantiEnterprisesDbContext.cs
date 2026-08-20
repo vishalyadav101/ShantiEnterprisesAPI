@@ -50,6 +50,7 @@ namespace ShantiEnterprises.API.Data
         public DbSet<Return> Returns { get; set; }
 
         public DbSet<Refund> Refunds { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

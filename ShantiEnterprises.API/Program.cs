@@ -117,7 +117,8 @@ builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 builder.Services.AddScoped<IContactEnquiryRepository, ContactEnquiryRepository>();
 builder.Services.AddScoped<IContactEnquiryService, ContactEnquiryService>();
 
-
+builder.Services.AddScoped<IFAQRepository, FAQRepository>();
+builder.Services.AddScoped<IFAQService, FAQService>();
 
 
 

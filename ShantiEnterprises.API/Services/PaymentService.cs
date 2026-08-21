@@ -14,17 +14,23 @@ namespace ShantiEnterprises.API.Services
         private readonly IOrderRepository _orderRepository;
         private readonly IAuditLogService _auditLogService;
         private readonly RazorpaySettings _razorpaySettings;
+        private readonly IUserRepository _userRepository;
+        private readonly IEmailService _emailService;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
             IOrderRepository orderRepository,
             IAuditLogService auditLogService,
-            IOptions<RazorpaySettings> razorpaySettings)
+            IOptions<RazorpaySettings> razorpaySettings,
+            IUserRepository userRepository,
+            IEmailService emailService)
         {
             _paymentRepository = paymentRepository;
             _orderRepository = orderRepository;
             _auditLogService = auditLogService;
             _razorpaySettings = razorpaySettings.Value;
+            _userRepository = userRepository;
+            _emailService = emailService;
         }
 
 
@@ -97,6 +103,7 @@ namespace ShantiEnterprises.API.Services
             string remarks;
             DateTime? paymentDate;
 
+
             // =====================================================
             // COD
             // =====================================================
@@ -128,6 +135,7 @@ namespace ShantiEnterprises.API.Services
                     "Online payment initiated. Awaiting payment gateway confirmation.";
             }
 
+
             var payment = new Payment
             {
                 OrderId = order.OrderId,
@@ -147,9 +155,11 @@ namespace ShantiEnterprises.API.Services
                 Remarks = remarks
             };
 
+
             var createdPayment =
                 await _paymentRepository.CreateAsync(
                     payment);
+
 
             order.OrderStatus = orderStatus;
 
@@ -157,7 +167,10 @@ namespace ShantiEnterprises.API.Services
 
             order.UpdatedDate = DateTime.UtcNow;
 
-            await _orderRepository.UpdateAsync(order);
+
+            await _orderRepository.UpdateAsync(
+                order);
+
 
             createdPayment.Order = order;
 
@@ -176,7 +189,8 @@ namespace ShantiEnterprises.API.Services
                 null);
 
 
-            return MapToResponse(createdPayment);
+            return MapToResponse(
+                createdPayment);
         }
 
 
@@ -208,18 +222,26 @@ namespace ShantiEnterprises.API.Services
                 await _paymentRepository.GetByOrderIdAsync(
                     orderId);
 
-            // If Razorpay order already exists,
-            // return existing payment information.
+
+            // =====================================================
+            // EXISTING RAZORPAY ORDER
+            // =====================================================
+
             if (existingPayment != null &&
                 !string.IsNullOrWhiteSpace(
                     existingPayment.RazorpayOrderId))
             {
                 existingPayment.Order = order;
 
-                return MapToResponse(existingPayment);
+                return MapToResponse(
+                    existingPayment);
             }
 
-            // Razorpay amount is required in paise.
+
+            // =====================================================
+            // RAZORPAY AMOUNT
+            // =====================================================
+
             var amountInPaise =
                 Convert.ToInt64(
                     Math.Round(
@@ -227,11 +249,17 @@ namespace ShantiEnterprises.API.Services
                         0,
                         MidpointRounding.AwayFromZero));
 
+
             if (amountInPaise <= 0)
             {
                 throw new Exception(
                     "Order amount must be greater than zero.");
             }
+
+
+            // =====================================================
+            // VALIDATE RAZORPAY SETTINGS
+            // =====================================================
 
             if (string.IsNullOrWhiteSpace(
                     _razorpaySettings.KeyId)
@@ -243,10 +271,16 @@ namespace ShantiEnterprises.API.Services
                     "Razorpay API keys are not configured.");
             }
 
+
+            // =====================================================
+            // CREATE RAZORPAY CLIENT
+            // =====================================================
+
             var client =
                 new RazorpayClient(
                     _razorpaySettings.KeyId,
                     _razorpaySettings.KeySecret);
+
 
             var options =
                 new Dictionary<string, object>
@@ -265,11 +299,15 @@ namespace ShantiEnterprises.API.Services
                     }
                 };
 
+
             var razorpayOrder =
-                client.Order.Create(options);
+                client.Order.Create(
+                    options);
+
 
             var razorpayOrderId =
                 razorpayOrder["id"]?.ToString();
+
 
             if (string.IsNullOrWhiteSpace(
                     razorpayOrderId))
@@ -278,7 +316,9 @@ namespace ShantiEnterprises.API.Services
                     "Failed to create Razorpay order.");
             }
 
+
             Payment payment;
+
 
             // =====================================================
             // CREATE NEW PAYMENT
@@ -288,28 +328,37 @@ namespace ShantiEnterprises.API.Services
             {
                 payment = new Payment
                 {
-                    OrderId = order.OrderId,
+                    OrderId =
+                        order.OrderId,
 
-                    PaymentMethod = "Razorpay",
+                    PaymentMethod =
+                        "Razorpay",
 
-                    TransactionId = string.Empty,
+                    TransactionId =
+                        string.Empty,
 
-                    Amount = order.GrandTotal,
+                    Amount =
+                        order.GrandTotal,
 
-                    PaymentStatus = "Pending",
+                    PaymentStatus =
+                        "Pending",
 
-                    PaymentDate = null,
+                    PaymentDate =
+                        null,
 
                     RazorpayOrderId =
                         razorpayOrderId,
 
-                    RazorpayPaymentId = null,
+                    RazorpayPaymentId =
+                        null,
 
-                    RazorpaySignature = null,
+                    RazorpaySignature =
+                        null,
 
                     Remarks =
                         "Razorpay order created. Awaiting payment."
                 };
+
 
                 payment =
                     await _paymentRepository.CreateAsync(
@@ -345,24 +394,36 @@ namespace ShantiEnterprises.API.Services
                 existingPayment.Remarks =
                     "Razorpay order created. Awaiting payment.";
 
+
                 await _paymentRepository.UpdateAsync(
                     existingPayment);
 
-                payment = existingPayment;
+
+                payment =
+                    existingPayment;
             }
 
-            // Keep order pending until payment succeeds.
-            order.PaymentStatus = "Pending";
 
-            order.OrderStatus = "Pending";
+            // =====================================================
+            // KEEP ORDER PENDING
+            // =====================================================
+
+            order.PaymentStatus =
+                "Pending";
+
+            order.OrderStatus =
+                "Pending";
 
             order.UpdatedDate =
                 DateTime.UtcNow;
 
+
             await _orderRepository.UpdateAsync(
                 order);
 
-            payment.Order = order;
+
+            payment.Order =
+                order;
 
 
             // =====================================================
@@ -379,7 +440,8 @@ namespace ShantiEnterprises.API.Services
                 null);
 
 
-            return MapToResponse(payment);
+            return MapToResponse(
+                payment);
         }
 
 
@@ -396,11 +458,13 @@ namespace ShantiEnterprises.API.Services
                 await _paymentRepository.GetByIdAsync(
                     dto.PaymentId);
 
+
             if (payment == null)
             {
                 throw new Exception(
                     "Payment not found.");
             }
+
 
             if (payment.Order == null)
             {
@@ -408,11 +472,13 @@ namespace ShantiEnterprises.API.Services
                     "Payment order not found.");
             }
 
+
             if (payment.Order.UserId != userId)
             {
                 throw new Exception(
                     "You are not authorized to verify this payment.");
             }
+
 
             if (string.IsNullOrWhiteSpace(
                     payment.RazorpayOrderId))
@@ -420,6 +486,7 @@ namespace ShantiEnterprises.API.Services
                 throw new Exception(
                     "Razorpay order was not created.");
             }
+
 
             if (!string.Equals(
                     payment.RazorpayOrderId,
@@ -430,6 +497,7 @@ namespace ShantiEnterprises.API.Services
                     "Razorpay order ID mismatch.");
             }
 
+
             if (string.IsNullOrWhiteSpace(
                     dto.RazorpayPaymentId))
             {
@@ -437,12 +505,18 @@ namespace ShantiEnterprises.API.Services
                     "Razorpay payment ID is required.");
             }
 
+
             if (string.IsNullOrWhiteSpace(
                     dto.RazorpaySignature))
             {
                 throw new Exception(
                     "Razorpay signature is required.");
             }
+
+
+            // =====================================================
+            // RAZORPAY SIGNATURE VERIFICATION
+            // =====================================================
 
             var options =
                 new Dictionary<string, string>
@@ -461,9 +535,11 @@ namespace ShantiEnterprises.API.Services
                     }
                 };
 
+
             try
             {
-                RazorpayUtils.verifyPaymentSignature(options);
+                RazorpayUtils.verifyPaymentSignature(
+                    options);
             }
             catch
             {
@@ -472,6 +548,7 @@ namespace ShantiEnterprises.API.Services
 
                 payment.Remarks =
                     "Razorpay signature verification failed.";
+
 
                 await _paymentRepository.UpdateAsync(
                     payment);
@@ -495,6 +572,7 @@ namespace ShantiEnterprises.API.Services
                     "Payment verification failed.");
             }
 
+
             // =====================================================
             // PAYMENT SUCCESS
             // =====================================================
@@ -517,6 +595,7 @@ namespace ShantiEnterprises.API.Services
             payment.Remarks =
                 "Razorpay payment verified successfully.";
 
+
             payment.Order.PaymentStatus =
                 "Paid";
 
@@ -525,6 +604,7 @@ namespace ShantiEnterprises.API.Services
 
             payment.Order.UpdatedDate =
                 DateTime.UtcNow;
+
 
             await _paymentRepository.UpdateAsync(
                 payment);
@@ -547,7 +627,110 @@ namespace ShantiEnterprises.API.Services
                 null);
 
 
-            return MapToResponse(payment);
+            // =====================================================
+            // SEND PAYMENT SUCCESS EMAIL
+            // =====================================================
+
+            var customer =
+                await _userRepository.GetByIdAsync(
+                    userId);
+
+
+            if (customer != null &&
+                !string.IsNullOrWhiteSpace(
+                    customer.Email))
+            {
+                try
+                {
+                    await _emailService.SendEmailAsync(
+                        customer.Email,
+                        $"Payment Successful - {payment.Order.OrderNumber}",
+                        $"""
+                        <div style="font-family:Arial,sans-serif;max-width:650px;margin:auto;">
+
+                            <h2 style="color:#16a34a;">
+                                Payment Successful
+                            </h2>
+
+                            <p>
+                                Dear <strong>{customer.FullName}</strong>,
+                            </p>
+
+                            <p>
+                                Your payment has been successfully received
+                                by <strong>Shanti Enterprises</strong>.
+                            </p>
+
+                            <hr />
+
+                            <h3>Payment Details</h3>
+
+                            <p>
+                                <strong>Order Number:</strong>
+                                {payment.Order.OrderNumber}
+                            </p>
+
+                            <p>
+                                <strong>Payment ID:</strong>
+                                {payment.RazorpayPaymentId}
+                            </p>
+
+                            <p>
+                                <strong>Transaction ID:</strong>
+                                {payment.TransactionId}
+                            </p>
+
+                            <p>
+                                <strong>Payment Method:</strong>
+                                {payment.PaymentMethod}
+                            </p>
+
+                            <p>
+                                <strong>Payment Status:</strong>
+                                {payment.PaymentStatus}
+                            </p>
+
+                            <p>
+                                <strong>Payment Date:</strong>
+                                {payment.PaymentDate:dd-MM-yyyy HH:mm}
+                            </p>
+
+                            <p>
+                                <strong>Amount Paid:</strong>
+                                ₹{payment.Amount:0.00}
+                            </p>
+
+                            <hr />
+
+                            <p>
+                                Your order is now confirmed and will be
+                                processed shortly.
+                            </p>
+
+                            <p style="margin-top:30px;">
+                                Thank you for choosing
+                                <strong>Shanti Enterprises</strong>.
+                            </p>
+
+                            <p>
+                                Regards,<br />
+                                <strong>Shanti Enterprises Team</strong>
+                            </p>
+
+                        </div>
+                        """,
+                        true);
+                }
+                catch
+                {
+                    // Email failure should not affect
+                    // successful payment.
+                }
+            }
+
+
+            return MapToResponse(
+                payment);
         }
 
 
@@ -565,21 +748,26 @@ namespace ShantiEnterprises.API.Services
                     orderId,
                     userId);
 
+
             if (order == null)
             {
                 return null;
             }
 
+
             var payment =
                 await _paymentRepository.GetByOrderIdAsync(
                     orderId);
+
 
             if (payment == null)
             {
                 return null;
             }
 
-            return MapToResponse(payment);
+
+            return MapToResponse(
+                payment);
         }
 
 
@@ -595,7 +783,9 @@ namespace ShantiEnterprises.API.Services
                     ? "COD"
                     : "PAY";
 
-            return $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
+
+            return
+                $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
                 .Substring(0, 28)
                 .ToUpper();
         }

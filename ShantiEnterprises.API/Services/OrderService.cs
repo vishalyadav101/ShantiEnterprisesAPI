@@ -14,6 +14,8 @@ namespace ShantiEnterprises.API.Services
         private readonly IInventoryRepository _inventoryRepository;
         private readonly ICouponRepository _couponRepository;
         private readonly IAuditLogService _auditLogService;
+        private readonly IUserRepository _userRepository;
+        private readonly IEmailService _emailService;
 
         public OrderService(
             IOrderRepository orderRepository,
@@ -23,7 +25,9 @@ namespace ShantiEnterprises.API.Services
             INotificationService notificationService,
             IInventoryRepository inventoryRepository,
             ICouponRepository couponRepository,
-            IAuditLogService auditLogService)
+            IAuditLogService auditLogService,
+            IUserRepository userRepository,
+            IEmailService emailService)
         {
             _orderRepository = orderRepository;
             _cartRepository = cartRepository;
@@ -33,7 +37,10 @@ namespace ShantiEnterprises.API.Services
             _inventoryRepository = inventoryRepository;
             _couponRepository = couponRepository;
             _auditLogService = auditLogService;
+            _userRepository = userRepository;
+            _emailService = emailService;
         }
+
 
         // ==========================================
         // CREATE ORDER
@@ -58,6 +65,7 @@ namespace ShantiEnterprises.API.Services
                     "Delivery address not found.");
             }
 
+
             // =========================
             // 2. GET CART
             // =========================
@@ -74,6 +82,7 @@ namespace ShantiEnterprises.API.Services
                     "Your cart is empty.");
             }
 
+
             // =========================
             // 3. CALCULATE ORDER
             // =========================
@@ -84,6 +93,7 @@ namespace ShantiEnterprises.API.Services
 
             var orderItems =
                 new List<OrderItem>();
+
 
             foreach (var cartItem in cart.CartItems)
             {
@@ -107,6 +117,7 @@ namespace ShantiEnterprises.API.Services
                         $"Invalid quantity for product '{product.ProductName}'.");
                 }
 
+
                 // =========================
                 // STOCK VALIDATION
                 // =========================
@@ -116,6 +127,7 @@ namespace ShantiEnterprises.API.Services
                     throw new Exception(
                         $"Only {product.Stock} units of '{product.ProductName}' are available.");
                 }
+
 
                 // =========================
                 // WHOLESALE PRICE
@@ -129,6 +141,7 @@ namespace ShantiEnterprises.API.Services
                 var totalPrice =
                     unitPrice * cartItem.Quantity;
 
+
                 // =========================
                 // GST
                 // =========================
@@ -138,9 +151,11 @@ namespace ShantiEnterprises.API.Services
                     product.GSTPercentage /
                     100;
 
+
                 subtotal += totalPrice;
 
                 gstAmount += itemGst;
+
 
                 // =========================
                 // ORDER ITEM
@@ -174,11 +189,13 @@ namespace ShantiEnterprises.API.Services
                 });
             }
 
+
             // =========================
             // 4. SHIPPING
             // =========================
 
             decimal shippingCharge = 0;
+
 
             // =========================
             // COUPON
@@ -188,9 +205,8 @@ namespace ShantiEnterprises.API.Services
 
             string? couponCode = null;
 
-            // Keep coupon outside transaction
-            // so it can be used later inside transaction
             Coupon? appliedCoupon = null;
+
 
             if (!string.IsNullOrWhiteSpace(dto.CouponCode))
             {
@@ -245,6 +261,7 @@ namespace ShantiEnterprises.API.Services
                         $"Minimum order amount should be {appliedCoupon.MinimumOrderAmount.Value:0.00}.");
                 }
 
+
                 // =========================
                 // CALCULATE DISCOUNT
                 // =========================
@@ -256,7 +273,9 @@ namespace ShantiEnterprises.API.Services
                         appliedCoupon.DiscountValue /
                         100;
 
+
                     // Maximum discount limit
+
                     if (appliedCoupon.MaximumDiscountAmount.HasValue &&
                         couponDiscount >
                         appliedCoupon.MaximumDiscountAmount.Value)
@@ -271,7 +290,9 @@ namespace ShantiEnterprises.API.Services
                         appliedCoupon.DiscountValue;
                 }
 
+
                 // Discount cannot exceed subtotal
+
                 if (couponDiscount > subtotal)
                 {
                     couponDiscount = subtotal;
@@ -283,6 +304,7 @@ namespace ShantiEnterprises.API.Services
                         2);
             }
 
+
             // =========================
             // 5. GRAND TOTAL
             // =========================
@@ -293,12 +315,14 @@ namespace ShantiEnterprises.API.Services
                 shippingCharge -
                 couponDiscount;
 
+
             grandTotal =
                 Math.Max(
                     0,
                     Math.Round(
                         grandTotal,
                         2));
+
 
             // =========================
             // 6. CREATE ORDER
@@ -313,6 +337,7 @@ namespace ShantiEnterprises.API.Services
                     GenerateOrderNumber(),
 
                 // Shipping Address Snapshot
+
                 ShippingFullName =
                     address.FullName,
 
@@ -337,7 +362,9 @@ namespace ShantiEnterprises.API.Services
                 ShippingCountry =
                     address.Country,
 
+
                 // Amounts
+
                 Subtotal =
                     subtotal,
 
@@ -356,7 +383,9 @@ namespace ShantiEnterprises.API.Services
                 GrandTotal =
                     grandTotal,
 
+
                 // Status
+
                 OrderStatus =
                     "Pending",
 
@@ -370,11 +399,13 @@ namespace ShantiEnterprises.API.Services
                     orderItems
             };
 
+
             // =====================================================
             // 7. ORDER + INVENTORY + COUPON + CART TRANSACTION
             // =====================================================
 
             Order createdOrder = null!;
+
 
             await _orderRepository.ExecuteInTransactionAsync(
                 async () =>
@@ -386,6 +417,7 @@ namespace ShantiEnterprises.API.Services
                     createdOrder =
                         await _orderRepository.CreateAsync(
                             order);
+
 
                     // =========================
                     // UPDATE INVENTORY
@@ -404,7 +436,9 @@ namespace ShantiEnterprises.API.Services
                                 $"Product not found: {cartItem.ProductId}");
                         }
 
+
                         // Double-check stock
+
                         if (product.Stock < cartItem.Quantity)
                         {
                             throw new Exception(
@@ -413,12 +447,14 @@ namespace ShantiEnterprises.API.Services
                                 $"Requested quantity: {cartItem.Quantity}.");
                         }
 
+
                         // =========================
                         // DEDUCT STOCK
                         // =========================
 
                         product.Stock -=
                             cartItem.Quantity;
+
 
                         // =========================
                         // INVENTORY TRANSACTION
@@ -446,9 +482,11 @@ namespace ShantiEnterprises.API.Services
                                     DateTime.UtcNow
                             };
 
+
                         _inventoryRepository.AddTransaction(
                             transaction);
                     }
+
 
                     // =========================
                     // SAVE INVENTORY
@@ -456,6 +494,7 @@ namespace ShantiEnterprises.API.Services
 
                     await _inventoryRepository
                         .SaveChangesAsync();
+
 
                     // =========================
                     // UPDATE COUPON USAGE
@@ -469,6 +508,7 @@ namespace ShantiEnterprises.API.Services
                             appliedCoupon);
                     }
 
+
                     // =========================
                     // CLEAR CART
                     // =========================
@@ -476,6 +516,7 @@ namespace ShantiEnterprises.API.Services
                     await _cartRepository.ClearAsync(
                         cart);
                 });
+
 
             // =====================================================
             // 8. CREATE NOTIFICATION
@@ -501,6 +542,7 @@ namespace ShantiEnterprises.API.Services
                         createdOrder.OrderId
                 });
 
+
             // =====================================================
             // 9. CREATE AUDIT LOG
             // =====================================================
@@ -514,13 +556,268 @@ namespace ShantiEnterprises.API.Services
                 $"Order {createdOrder.OrderNumber} created successfully.",
                 null);
 
+
+            // =====================================================
+            // 10. SEND ORDER CONFIRMATION EMAIL
+            // =====================================================
+
+            var customer =
+                await _userRepository.GetByIdAsync(
+                    userId);
+
+
+            if (customer != null &&
+                !string.IsNullOrWhiteSpace(customer.Email))
+            {
+                try
+                {
+                    var itemsHtml =
+                        string.Join(
+                            "",
+                            createdOrder.OrderItems.Select(
+                                item => $"""
+                                <tr>
+                                    <td style="padding:10px;border:1px solid #ddd;">
+                                        {item.ProductName}
+                                    </td>
+
+                                    <td style="padding:10px;border:1px solid #ddd;">
+                                        {item.SKU}
+                                    </td>
+
+                                    <td style="padding:10px;border:1px solid #ddd;text-align:center;">
+                                        {item.Quantity}
+                                    </td>
+
+                                    <td style="padding:10px;border:1px solid #ddd;text-align:right;">
+                                        ₹{item.UnitPrice:0.00}
+                                    </td>
+
+                                    <td style="padding:10px;border:1px solid #ddd;text-align:right;">
+                                        ₹{item.TotalPrice:0.00}
+                                    </td>
+                                </tr>
+                                """));
+
+
+                    await _emailService.SendEmailAsync(
+                        customer.Email,
+                        $"Order Confirmation - {createdOrder.OrderNumber}",
+                        $"""
+                        <div style="font-family:Arial,sans-serif;max-width:700px;margin:auto;">
+
+                            <h2 style="color:#1f2937;">
+                                Order Placed Successfully
+                            </h2>
+
+                            <p>
+                                Dear <strong>{customer.FullName}</strong>,
+                            </p>
+
+                            <p>
+                                Thank you for placing your order with
+                                <strong>Shanti Enterprises</strong>.
+                            </p>
+
+                            <p>
+                                Your order has been successfully placed.
+                            </p>
+
+                            <hr />
+
+                            <h3>Order Details</h3>
+
+                            <p>
+                                <strong>Order Number:</strong>
+                                {createdOrder.OrderNumber}
+                            </p>
+
+                            <p>
+                                <strong>Order Date:</strong>
+                                {createdOrder.CreatedDate:dd-MM-yyyy HH:mm}
+                            </p>
+
+                            <p>
+                                <strong>Order Status:</strong>
+                                {createdOrder.OrderStatus}
+                            </p>
+
+
+                            <table style="width:100%;border-collapse:collapse;margin-top:20px;">
+
+                                <thead>
+
+                                    <tr style="background:#f3f4f6;">
+
+                                        <th style="padding:10px;border:1px solid #ddd;text-align:left;">
+                                            Product
+                                        </th>
+
+                                        <th style="padding:10px;border:1px solid #ddd;text-align:left;">
+                                            SKU
+                                        </th>
+
+                                        <th style="padding:10px;border:1px solid #ddd;">
+                                            Qty
+                                        </th>
+
+                                        <th style="padding:10px;border:1px solid #ddd;text-align:right;">
+                                            Unit Price
+                                        </th>
+
+                                        <th style="padding:10px;border:1px solid #ddd;text-align:right;">
+                                            Total
+                                        </th>
+
+                                    </tr>
+
+                                </thead>
+
+                                <tbody>
+
+                                    {itemsHtml}
+
+                                </tbody>
+
+                            </table>
+
+
+                            <br />
+
+
+                            <table style="width:100%;max-width:400px;margin-left:auto;">
+
+                                <tr>
+
+                                    <td style="padding:6px;">
+                                        Subtotal
+                                    </td>
+
+                                    <td style="padding:6px;text-align:right;">
+                                        ₹{createdOrder.Subtotal:0.00}
+                                    </td>
+
+                                </tr>
+
+
+                                <tr>
+
+                                    <td style="padding:6px;">
+                                        GST
+                                    </td>
+
+                                    <td style="padding:6px;text-align:right;">
+                                        ₹{createdOrder.GSTAmount:0.00}
+                                    </td>
+
+                                </tr>
+
+
+                                <tr>
+
+                                    <td style="padding:6px;">
+                                        Shipping
+                                    </td>
+
+                                    <td style="padding:6px;text-align:right;">
+                                        ₹{createdOrder.ShippingCharge:0.00}
+                                    </td>
+
+                                </tr>
+
+
+                                <tr>
+
+                                    <td style="padding:6px;">
+                                        Coupon Discount
+                                    </td>
+
+                                    <td style="padding:6px;text-align:right;">
+                                        -₹{createdOrder.CouponDiscount:0.00}
+                                    </td>
+
+                                </tr>
+
+
+                                <tr>
+
+                                    <td style="padding:10px;font-size:18px;">
+                                        <strong>Grand Total</strong>
+                                    </td>
+
+                                    <td style="padding:10px;text-align:right;font-size:18px;">
+                                        <strong>
+                                            ₹{createdOrder.GrandTotal:0.00}
+                                        </strong>
+                                    </td>
+
+                                </tr>
+
+                            </table>
+
+
+                            <hr />
+
+
+                            <h3>Delivery Address</h3>
+
+                            <p>
+
+                                {createdOrder.ShippingFullName}<br />
+
+                                {createdOrder.ShippingAddressLine1}<br />
+
+                                {createdOrder.ShippingAddressLine2}<br />
+
+                                {createdOrder.ShippingCity},
+                                {createdOrder.ShippingState}
+                                - {createdOrder.ShippingPincode}<br />
+
+                                {createdOrder.ShippingCountry}<br />
+
+                                Mobile: {createdOrder.ShippingMobile}
+
+                            </p>
+
+
+                            <p style="margin-top:30px;">
+
+                                Thank you for choosing
+                                <strong>Shanti Enterprises</strong>.
+
+                            </p>
+
+
+                            <p>
+
+                                Regards,<br />
+
+                                <strong>
+                                    Shanti Enterprises Team
+                                </strong>
+
+                            </p>
+
+                        </div>
+                        """,
+                        true);
+                }
+                catch
+                {
+                    // Email failure should not rollback
+                    // successfully created order.
+                }
+            }
+
+
             // =========================
-            // 10. RESPONSE
+            // 11. RESPONSE
             // =========================
 
             return MapToResponse(
                 createdOrder);
         }
+
 
         // ==========================================
         // GET MY ORDERS
@@ -538,6 +835,7 @@ namespace ShantiEnterprises.API.Services
                 .Select(MapToResponse)
                 .ToList();
         }
+
 
         // ==========================================
         // GET MY ORDER BY ID
@@ -561,6 +859,7 @@ namespace ShantiEnterprises.API.Services
             return MapToResponse(
                 order);
         }
+
 
         // ==========================================
         // PRICE CALCULATION
@@ -590,6 +889,7 @@ namespace ShantiEnterprises.API.Services
             return product.WholesalePrice;
         }
 
+
         // ==========================================
         // ORDER NUMBER
         // ==========================================
@@ -600,6 +900,7 @@ namespace ShantiEnterprises.API.Services
                 .Substring(0, 24)
                 .ToUpper();
         }
+
 
         // ==========================================
         // RESPONSE MAPPING

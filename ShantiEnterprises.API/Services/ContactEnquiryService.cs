@@ -7,11 +7,14 @@ namespace ShantiEnterprises.API.Services
     public class ContactEnquiryService : IContactEnquiryService
     {
         private readonly IContactEnquiryRepository _repository;
+        private readonly IEmailService _emailService;
 
         public ContactEnquiryService(
-            IContactEnquiryRepository repository)
+            IContactEnquiryRepository repository,
+            IEmailService emailService)
         {
             _repository = repository;
+            _emailService = emailService;
         }
 
 
@@ -87,6 +90,47 @@ namespace ShantiEnterprises.API.Services
 
             var created =
                 await _repository.AddAsync(contactEnquiry);
+
+
+            // ======================================
+            // SEND ADMIN EMAIL
+            // ======================================
+
+            try
+            {
+                await _emailService.SendEmailAsync(
+                    "vishalsagar2bhai@gmail.com",
+                    "New Contact Enquiry - Shanti Enterprises",
+                    $"""
+                    <h2>New Contact Enquiry</h2>
+
+                    <p><strong>Name:</strong> {created.FullName}</p>
+
+                    <p><strong>Email:</strong> {created.Email}</p>
+
+                    <p><strong>Mobile:</strong> {created.Mobile}</p>
+
+                    <p><strong>Subject:</strong> {created.Subject}</p>
+
+                    <p><strong>Message:</strong></p>
+
+                    <p>{created.Message}</p>
+
+                    <hr />
+
+                    <p><strong>Status:</strong> Pending</p>
+
+                    <p>
+                        Please login to the admin panel to manage this enquiry.
+                    </p>
+                    """,
+                    true);
+            }
+            catch
+            {
+                // Email failure should not rollback
+                // successfully saved enquiry.
+            }
 
 
             return MapToDto(created);
@@ -214,6 +258,63 @@ namespace ShantiEnterprises.API.Services
 
             var updated =
                 await _repository.UpdateAsync(enquiry);
+
+
+            // ======================================
+            // SEND REPLY EMAIL TO CUSTOMER
+            // ======================================
+
+            if (status.Equals(
+                    "Replied",
+                    StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(updated.AdminReply))
+            {
+                try
+                {
+                    await _emailService.SendEmailAsync(
+                        updated.Email,
+                        "Response to Your Enquiry - Shanti Enterprises",
+                        $"""
+                        <h2>Dear {updated.FullName},</h2>
+
+                        <p>
+                            Thank you for contacting Shanti Enterprises.
+                        </p>
+
+                        <p>
+                            We have reviewed your enquiry regarding:
+                        </p>
+
+                        <p>
+                            <strong>{updated.Subject}</strong>
+                        </p>
+
+                        <hr />
+
+                        <h3>Our Response</h3>
+
+                        <p>{updated.AdminReply}</p>
+
+                        <hr />
+
+                        <p>
+                            If you have any further questions, please feel free
+                            to contact us again.
+                        </p>
+
+                        <p>
+                            Regards,<br />
+                            <strong>Shanti Enterprises</strong>
+                        </p>
+                        """,
+                        true);
+                }
+                catch
+                {
+                    // Email failure should not rollback
+                    // successfully updated enquiry.
+                }
+            }
 
 
             return MapToDto(updated);

@@ -12,6 +12,7 @@
         public decimal Subtotal { get; set; }
 
         public decimal GSTAmount { get; set; }
+        public decimal ShippingCharge { get; set; }
 
         public decimal GrandTotal { get; set; }
 

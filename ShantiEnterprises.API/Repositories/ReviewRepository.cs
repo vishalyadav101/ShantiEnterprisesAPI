@@ -16,7 +16,22 @@ namespace ShantiEnterprises.API.Repositories
         }
 
         // ==========================================
-        // GET BY PRODUCT
+        // GET ALL REVIEWS
+        // ADMIN
+        // ==========================================
+
+        public async Task<List<Review>> GetAllAsync()
+        {
+            return await _context.Reviews
+                .Include(x => x.User)
+                .Include(x => x.Product)
+                .OrderByDescending(x => x.CreatedDate)
+                .ToListAsync();
+        }
+
+        // ==========================================
+        // GET REVIEWS BY PRODUCT
+        // CUSTOMER
         // ==========================================
 
         public async Task<List<Review>> GetByProductIdAsync(
@@ -33,7 +48,7 @@ namespace ShantiEnterprises.API.Repositories
         }
 
         // ==========================================
-        // GET BY ID
+        // GET REVIEW BY ID
         // ==========================================
 
         public async Task<Review?> GetByIdAsync(
@@ -41,6 +56,7 @@ namespace ShantiEnterprises.API.Repositories
         {
             return await _context.Reviews
                 .Include(x => x.User)
+                .Include(x => x.Product)
                 .FirstOrDefaultAsync(x =>
                     x.ReviewId == reviewId);
         }

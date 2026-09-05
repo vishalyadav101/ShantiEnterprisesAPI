@@ -16,8 +16,12 @@ namespace ShantiEnterprises.API.Repositories
             _context = context;
         }
 
-        public async Task<List<ProductPriceTier>> GetByProductIdAsync(
-            int productId)
+        // =========================================================
+        // GET BY PRODUCT
+        // =========================================================
+
+        public async Task<List<ProductPriceTier>>
+            GetByProductIdAsync(int productId)
         {
             return await _context.ProductPriceTiers
                 .Where(x => x.ProductId == productId)
@@ -25,15 +29,24 @@ namespace ShantiEnterprises.API.Repositories
                 .ToListAsync();
         }
 
-        public async Task<ProductPriceTier?> GetByIdAsync(int id)
+        // =========================================================
+        // GET BY ID
+        // =========================================================
+
+        public async Task<ProductPriceTier?>
+            GetByIdAsync(int id)
         {
             return await _context.ProductPriceTiers
-                .FirstOrDefaultAsync(x =>
-                    x.ProductPriceTierId == id);
+                .FirstOrDefaultAsync(
+                    x => x.ProductPriceTierId == id);
         }
 
-        public async Task<ProductPriceTier> AddAsync(
-            ProductPriceTier tier)
+        // =========================================================
+        // CREATE
+        // =========================================================
+
+        public async Task<ProductPriceTier>
+            AddAsync(ProductPriceTier tier)
         {
             _context.ProductPriceTiers.Add(tier);
 
@@ -42,11 +55,49 @@ namespace ShantiEnterprises.API.Repositories
             return tier;
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        // =========================================================
+        // UPDATE
+        // =========================================================
+
+        public async Task<ProductPriceTier?>
+            UpdateAsync(ProductPriceTier tier)
         {
-            var tier = await _context.ProductPriceTiers
-                .FirstOrDefaultAsync(x =>
-                    x.ProductPriceTierId == id);
+            var existingTier =
+                await _context.ProductPriceTiers
+                    .FirstOrDefaultAsync(
+                        x => x.ProductPriceTierId ==
+                             tier.ProductPriceTierId);
+
+            if (existingTier == null)
+            {
+                return null;
+            }
+
+            existingTier.MinQuantity =
+                tier.MinQuantity;
+
+            existingTier.MaxQuantity =
+                tier.MaxQuantity;
+
+            existingTier.Price =
+                tier.Price;
+
+            await _context.SaveChangesAsync();
+
+            return existingTier;
+        }
+
+        // =========================================================
+        // DELETE
+        // =========================================================
+
+        public async Task<bool>
+            DeleteAsync(int id)
+        {
+            var tier =
+                await _context.ProductPriceTiers
+                    .FirstOrDefaultAsync(
+                        x => x.ProductPriceTierId == id);
 
             if (tier == null)
             {

@@ -130,7 +130,13 @@ namespace ShantiEnterprises.API.Data
                 entity.Property(x => x.MRP)
                     .HasPrecision(18, 2);
 
+                entity.Property(x => x.RetailPrice)
+                    .HasPrecision(18, 2);
+
                 entity.Property(x => x.WholesalePrice)
+                    .HasPrecision(18, 2);
+
+                entity.Property(x => x.ShippingCharge)
                     .HasPrecision(18, 2);
 
                 entity.Property(x => x.GSTPercentage)
@@ -146,8 +152,6 @@ namespace ShantiEnterprises.API.Data
                 entity.HasIndex(x => x.SKU)
                     .IsUnique();
 
-
-                // Category -> Products
                 entity.HasOne(x => x.Category)
                     .WithMany(x => x.Products)
                     .HasForeignKey(x => x.CategoryId)

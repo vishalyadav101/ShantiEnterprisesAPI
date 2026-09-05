@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 
 namespace ShantiEnterprises.API.DTOs.Category
 {
@@ -11,8 +12,9 @@ namespace ShantiEnterprises.API.DTOs.Category
         [MaxLength(500)]
         public string Description { get; set; } = string.Empty;
 
-        [MaxLength(500)]
-        public string? ImageUrl { get; set; }
+        // New category image
+        // Optional hai, isliye purani image ko preserve kar sakte hain
+        public IFormFile? ImageFile { get; set; }
 
         public bool IsActive { get; set; } = true;
     }

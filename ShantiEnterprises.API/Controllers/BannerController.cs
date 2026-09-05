@@ -22,6 +22,7 @@ namespace ShantiEnterprises.API.Controllers
         // =========================
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAll()
         {
             var result =
@@ -34,7 +35,8 @@ namespace ShantiEnterprises.API.Controllers
         // GET BANNER BY ID
         // =========================
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(
             int id)
         {
@@ -59,8 +61,9 @@ namespace ShantiEnterprises.API.Controllers
 
         [HttpPost]
         [Authorize(Roles = "Admin")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> Create(
-            [FromBody] BannerCreateDto dto)
+            [FromForm] BannerCreateDto dto)
         {
             try
             {
@@ -83,11 +86,12 @@ namespace ShantiEnterprises.API.Controllers
         // UPDATE BANNER
         // =========================
 
-        [HttpPut("{id}")]
+        [HttpPut("{id:int}")]
         [Authorize(Roles = "Admin")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(
             int id,
-            [FromBody] BannerUpdateDto dto)
+            [FromForm] BannerUpdateDto dto)
         {
             try
             {
@@ -122,7 +126,7 @@ namespace ShantiEnterprises.API.Controllers
         // DELETE BANNER
         // =========================
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(
             int id)
@@ -147,4 +151,4 @@ namespace ShantiEnterprises.API.Controllers
                 });
         }
     }
-}
+}   

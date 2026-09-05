@@ -12,13 +12,33 @@
 
         public string CategoryName { get; set; } = string.Empty;
 
+        // =========================================================
+        // PRICING
+        // =========================================================
+
         public decimal MRP { get; set; }
 
+        public decimal RetailPrice { get; set; }
+
         public decimal WholesalePrice { get; set; }
+
+        // =========================================================
+        // SHIPPING
+        // =========================================================
+
+        public decimal ShippingCharge { get; set; }
+
+        // =========================================================
+        // STOCK / GST
+        // =========================================================
 
         public int Stock { get; set; }
 
         public decimal GSTPercentage { get; set; }
+
+        // =========================================================
+        // OTHER
+        // =========================================================
 
         public string SKU { get; set; } = string.Empty;
 
@@ -26,8 +46,16 @@
 
         public DateTime CreatedDate { get; set; }
 
+        // =========================================================
+        // IMAGES
+        // =========================================================
+
         public List<ProductImageResponseDto> Images { get; set; }
             = new();
+
+        // =========================================================
+        // PRICE TIERS
+        // =========================================================
 
         public List<ProductPriceTierResponseDto> PriceTiers { get; set; }
             = new();

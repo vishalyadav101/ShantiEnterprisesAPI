@@ -41,7 +41,6 @@ namespace ShantiEnterprises.API.Services
             _emailService = emailService;
         }
 
-
         // ==========================================
         // CREATE ORDER
         // ==========================================
@@ -65,7 +64,6 @@ namespace ShantiEnterprises.API.Services
                     "Delivery address not found.");
             }
 
-
             // =========================
             // 2. GET CART
             // =========================
@@ -82,7 +80,6 @@ namespace ShantiEnterprises.API.Services
                     "Your cart is empty.");
             }
 
-
             // =========================
             // 3. CALCULATE ORDER
             // =========================
@@ -94,16 +91,20 @@ namespace ShantiEnterprises.API.Services
             var orderItems =
                 new List<OrderItem>();
 
-
             foreach (var cartItem in cart.CartItems)
             {
-                var product = cartItem.Product;
+                var product =
+                    cartItem.Product;
 
                 if (product == null)
                 {
                     throw new Exception(
                         $"Product not found for cart item {cartItem.CartItemId}.");
                 }
+
+                // =========================
+                // PRODUCT VALIDATION
+                // =========================
 
                 if (!product.IsActive)
                 {
@@ -117,7 +118,6 @@ namespace ShantiEnterprises.API.Services
                         $"Invalid quantity for product '{product.ProductName}'.");
                 }
 
-
                 // =========================
                 // STOCK VALIDATION
                 // =========================
@@ -128,9 +128,8 @@ namespace ShantiEnterprises.API.Services
                         $"Only {product.Stock} units of '{product.ProductName}' are available.");
                 }
 
-
                 // =========================
-                // WHOLESALE PRICE
+                // PRICE CALCULATION
                 // =========================
 
                 var unitPrice =
@@ -139,8 +138,8 @@ namespace ShantiEnterprises.API.Services
                         cartItem.Quantity);
 
                 var totalPrice =
-                    unitPrice * cartItem.Quantity;
-
+                    unitPrice *
+                    cartItem.Quantity;
 
                 // =========================
                 // GST
@@ -151,54 +150,66 @@ namespace ShantiEnterprises.API.Services
                     product.GSTPercentage /
                     100;
 
-
                 subtotal += totalPrice;
 
                 gstAmount += itemGst;
-
 
                 // =========================
                 // ORDER ITEM
                 // =========================
 
-                orderItems.Add(new OrderItem
-                {
-                    ProductId =
-                        product.ProductId,
+                orderItems.Add(
+                    new OrderItem
+                    {
+                        ProductId =
+                            product.ProductId,
 
-                    ProductName =
-                        product.ProductName,
+                        ProductName =
+                            product.ProductName,
 
-                    SKU =
-                        product.SKU,
+                        SKU =
+                            product.SKU,
 
-                    Quantity =
-                        cartItem.Quantity,
+                        Quantity =
+                            cartItem.Quantity,
 
-                    UnitPrice =
-                        unitPrice,
+                        UnitPrice =
+                            unitPrice,
 
-                    GSTPercentage =
-                        product.GSTPercentage,
+                        GSTPercentage =
+                            product.GSTPercentage,
 
-                    GSTAmount =
-                        itemGst,
+                        GSTAmount =
+                            itemGst,
 
-                    TotalPrice =
-                        totalPrice
-                });
+                        TotalPrice =
+                            totalPrice
+                    });
             }
-
 
             // =========================
             // 4. SHIPPING
             // =========================
+            //
+            // One shipping charge per product line.
+            //
+            // Example:
+            // Product A → ₹40
+            // Product B → ₹50
+            //
+            // Total Shipping = ₹90
+            //
+            // Same product quantity 10:
+            // Shipping stays ₹40,
+            // not ₹400.
+            // =========================
 
-            decimal shippingCharge = 0;
-
+            decimal shippingCharge =
+                CalculateShippingCharge(
+                    cart.CartItems);
 
             // =========================
-            // COUPON
+            // 5. COUPON
             // =========================
 
             decimal couponDiscount = 0;
@@ -207,8 +218,8 @@ namespace ShantiEnterprises.API.Services
 
             Coupon? appliedCoupon = null;
 
-
-            if (!string.IsNullOrWhiteSpace(dto.CouponCode))
+            if (!string.IsNullOrWhiteSpace(
+                dto.CouponCode))
             {
                 couponCode =
                     dto.CouponCode
@@ -216,8 +227,9 @@ namespace ShantiEnterprises.API.Services
                         .ToUpper();
 
                 appliedCoupon =
-                    await _couponRepository.GetByCodeAsync(
-                        couponCode);
+                    await _couponRepository
+                        .GetByCodeAsync(
+                            couponCode);
 
                 if (appliedCoupon == null)
                 {
@@ -225,7 +237,8 @@ namespace ShantiEnterprises.API.Services
                         "Invalid coupon code.");
                 }
 
-                var now = DateTime.UtcNow;
+                var now =
+                    DateTime.UtcNow;
 
                 if (!appliedCoupon.IsActive)
                 {
@@ -261,20 +274,17 @@ namespace ShantiEnterprises.API.Services
                         $"Minimum order amount should be {appliedCoupon.MinimumOrderAmount.Value:0.00}.");
                 }
 
-
                 // =========================
                 // CALCULATE DISCOUNT
                 // =========================
 
-                if (appliedCoupon.DiscountType == "Percentage")
+                if (appliedCoupon.DiscountType ==
+                    "Percentage")
                 {
                     couponDiscount =
                         subtotal *
                         appliedCoupon.DiscountValue /
                         100;
-
-
-                    // Maximum discount limit
 
                     if (appliedCoupon.MaximumDiscountAmount.HasValue &&
                         couponDiscount >
@@ -284,18 +294,19 @@ namespace ShantiEnterprises.API.Services
                             appliedCoupon.MaximumDiscountAmount.Value;
                     }
                 }
-                else if (appliedCoupon.DiscountType == "Fixed")
+                else if (appliedCoupon.DiscountType ==
+                         "Fixed")
                 {
                     couponDiscount =
                         appliedCoupon.DiscountValue;
                 }
 
-
                 // Discount cannot exceed subtotal
 
                 if (couponDiscount > subtotal)
                 {
-                    couponDiscount = subtotal;
+                    couponDiscount =
+                        subtotal;
                 }
 
                 couponDiscount =
@@ -304,9 +315,8 @@ namespace ShantiEnterprises.API.Services
                         2);
             }
 
-
             // =========================
-            // 5. GRAND TOTAL
+            // 6. GRAND TOTAL
             // =========================
 
             decimal grandTotal =
@@ -315,7 +325,6 @@ namespace ShantiEnterprises.API.Services
                 shippingCharge -
                 couponDiscount;
 
-
             grandTotal =
                 Math.Max(
                     0,
@@ -323,91 +332,95 @@ namespace ShantiEnterprises.API.Services
                         grandTotal,
                         2));
 
-
             // =========================
-            // 6. CREATE ORDER
+            // 7. CREATE ORDER
             // =========================
 
-            var order = new Order
-            {
-                UserId =
-                    userId,
+            var order =
+                new Order
+                {
+                    UserId =
+                        userId,
 
-                OrderNumber =
-                    GenerateOrderNumber(),
+                    OrderNumber =
+                        GenerateOrderNumber(),
 
-                // Shipping Address Snapshot
+                    // =====================
+                    // SHIPPING ADDRESS
+                    // =====================
 
-                ShippingFullName =
-                    address.FullName,
+                    ShippingFullName =
+                        address.FullName,
 
-                ShippingMobile =
-                    address.Mobile,
+                    ShippingMobile =
+                        address.Mobile,
 
-                ShippingAddressLine1 =
-                    address.AddressLine1,
+                    ShippingAddressLine1 =
+                        address.AddressLine1,
 
-                ShippingAddressLine2 =
-                    address.AddressLine2,
+                    ShippingAddressLine2 =
+                        address.AddressLine2,
 
-                ShippingCity =
-                    address.City,
+                    ShippingCity =
+                        address.City,
 
-                ShippingState =
-                    address.State,
+                    ShippingState =
+                        address.State,
 
-                ShippingPincode =
-                    address.Pincode,
+                    ShippingPincode =
+                        address.Pincode,
 
-                ShippingCountry =
-                    address.Country,
+                    ShippingCountry =
+                        address.Country,
 
+                    // =====================
+                    // AMOUNTS
+                    // =====================
 
-                // Amounts
+                    Subtotal =
+                        subtotal,
 
-                Subtotal =
-                    subtotal,
+                    GSTAmount =
+                        gstAmount,
 
-                GSTAmount =
-                    gstAmount,
+                    ShippingCharge =
+                        shippingCharge,
 
-                ShippingCharge =
-                    shippingCharge,
+                    CouponDiscount =
+                        couponDiscount,
 
-                CouponDiscount =
-                    couponDiscount,
+                    CouponCode =
+                        couponCode,
 
-                CouponCode =
-                    couponCode,
+                    GrandTotal =
+                        grandTotal,
 
-                GrandTotal =
-                    grandTotal,
+                    // =====================
+                    // STATUS
+                    // =====================
 
+                    OrderStatus =
+                        "Pending",
 
-                // Status
+                    PaymentStatus =
+                        "Pending",
 
-                OrderStatus =
-                    "Pending",
+                    CreatedDate =
+                        DateTime.UtcNow,
 
-                PaymentStatus =
-                    "Pending",
-
-                CreatedDate =
-                    DateTime.UtcNow,
-
-                OrderItems =
-                    orderItems
-            };
-
+                    OrderItems =
+                        orderItems
+                };
 
             // =====================================================
-            // 7. ORDER + INVENTORY + COUPON + CART TRANSACTION
+            // 8. ORDER + INVENTORY + COUPON + CART TRANSACTION
             // =====================================================
 
-            Order createdOrder = null!;
+            Order createdOrder =
+                null!;
 
-
-            await _orderRepository.ExecuteInTransactionAsync(
+            await _orderRepository
+                .ExecuteInTransactionAsync(
                 async () =>
                 {
                     // =========================
@@ -415,9 +428,9 @@ namespace ShantiEnterprises.API.Services
                     // =========================
 
                     createdOrder =
-                        await _orderRepository.CreateAsync(
-                            order);
-
+                        await _orderRepository
+                            .CreateAsync(
+                                order);
 
                     // =========================
                     // UPDATE INVENTORY
@@ -436,10 +449,10 @@ namespace ShantiEnterprises.API.Services
                                 $"Product not found: {cartItem.ProductId}");
                         }
 
-
                         // Double-check stock
 
-                        if (product.Stock < cartItem.Quantity)
+                        if (product.Stock <
+                            cartItem.Quantity)
                         {
                             throw new Exception(
                                 $"Insufficient stock for product '{product.ProductName}'. " +
@@ -447,14 +460,12 @@ namespace ShantiEnterprises.API.Services
                                 $"Requested quantity: {cartItem.Quantity}.");
                         }
 
-
                         // =========================
                         // DEDUCT STOCK
                         // =========================
 
                         product.Stock -=
                             cartItem.Quantity;
-
 
                         // =========================
                         // INVENTORY TRANSACTION
@@ -482,11 +493,10 @@ namespace ShantiEnterprises.API.Services
                                     DateTime.UtcNow
                             };
 
-
-                        _inventoryRepository.AddTransaction(
-                            transaction);
+                        _inventoryRepository
+                            .AddTransaction(
+                                transaction);
                     }
-
 
                     // =========================
                     // SAVE INVENTORY
@@ -494,7 +504,6 @@ namespace ShantiEnterprises.API.Services
 
                     await _inventoryRepository
                         .SaveChangesAsync();
-
 
                     // =========================
                     // UPDATE COUPON USAGE
@@ -508,43 +517,42 @@ namespace ShantiEnterprises.API.Services
                             appliedCoupon);
                     }
 
-
                     // =========================
                     // CLEAR CART
                     // =========================
 
-                    await _cartRepository.ClearAsync(
-                        cart);
+                    await _cartRepository
+                        .ClearAsync(
+                            cart);
                 });
 
-
             // =====================================================
-            // 8. CREATE NOTIFICATION
+            // 9. CREATE NOTIFICATION
             // =====================================================
 
             await _notificationService.CreateAsync(
                 userId,
-                new DTOs.Notification.CreateNotificationDto
+                new DTOs.Notification
+                    .CreateNotificationDto
                 {
                     Title =
-                        "Order Placed Successfully",
+                            "Order Placed Successfully",
 
                     Message =
-                        $"Your order {createdOrder.OrderNumber} has been placed successfully.",
+                            $"Your order {createdOrder.OrderNumber} has been placed successfully.",
 
                     Type =
-                        "Order",
+                            "Order",
 
                     ReferenceType =
-                        "Order",
+                            "Order",
 
                     ReferenceId =
-                        createdOrder.OrderId
+                            createdOrder.OrderId
                 });
 
-
             // =====================================================
-            // 9. CREATE AUDIT LOG
+            // 10. CREATE AUDIT LOG
             // =====================================================
 
             await _auditLogService.CreateAsync(
@@ -556,49 +564,48 @@ namespace ShantiEnterprises.API.Services
                 $"Order {createdOrder.OrderNumber} created successfully.",
                 null);
 
-
             // =====================================================
-            // 10. SEND ORDER CONFIRMATION EMAIL
+            // 11. SEND ORDER CONFIRMATION EMAIL
             // =====================================================
 
             var customer =
                 await _userRepository.GetByIdAsync(
                     userId);
 
-
             if (customer != null &&
-                !string.IsNullOrWhiteSpace(customer.Email))
+                !string.IsNullOrWhiteSpace(
+                    customer.Email))
             {
                 try
                 {
                     var itemsHtml =
                         string.Join(
                             "",
-                            createdOrder.OrderItems.Select(
-                                item => $"""
-                                <tr>
-                                    <td style="padding:10px;border:1px solid #ddd;">
-                                        {item.ProductName}
-                                    </td>
+                            createdOrder.OrderItems
+                                .Select(
+                                    item => $"""
+                                    <tr>
+                                        <td style="padding:10px;border:1px solid #ddd;">
+                                            {item.ProductName}
+                                        </td>
 
-                                    <td style="padding:10px;border:1px solid #ddd;">
-                                        {item.SKU}
-                                    </td>
+                                        <td style="padding:10px;border:1px solid #ddd;">
+                                            {item.SKU}
+                                        </td>
 
-                                    <td style="padding:10px;border:1px solid #ddd;text-align:center;">
-                                        {item.Quantity}
-                                    </td>
+                                        <td style="padding:10px;border:1px solid #ddd;text-align:center;">
+                                            {item.Quantity}
+                                        </td>
 
-                                    <td style="padding:10px;border:1px solid #ddd;text-align:right;">
-                                        ₹{item.UnitPrice:0.00}
-                                    </td>
+                                        <td style="padding:10px;border:1px solid #ddd;text-align:right;">
+                                            ₹{item.UnitPrice:0.00}
+                                        </td>
 
-                                    <td style="padding:10px;border:1px solid #ddd;text-align:right;">
-                                        ₹{item.TotalPrice:0.00}
-                                    </td>
-                                </tr>
-                                """));
-
+                                        <td style="padding:10px;border:1px solid #ddd;text-align:right;">
+                                            ₹{item.TotalPrice:0.00}
+                                        </td>
+                                    </tr>
+                                    """));
 
                     await _emailService.SendEmailAsync(
                         customer.Email,
@@ -642,7 +649,6 @@ namespace ShantiEnterprises.API.Services
                                 {createdOrder.OrderStatus}
                             </p>
 
-
                             <table style="width:100%;border-collapse:collapse;margin-top:20px;">
 
                                 <thead>
@@ -681,9 +687,7 @@ namespace ShantiEnterprises.API.Services
 
                             </table>
 
-
                             <br />
-
 
                             <table style="width:100%;max-width:400px;margin-left:auto;">
 
@@ -699,7 +703,6 @@ namespace ShantiEnterprises.API.Services
 
                                 </tr>
 
-
                                 <tr>
 
                                     <td style="padding:6px;">
@@ -711,7 +714,6 @@ namespace ShantiEnterprises.API.Services
                                     </td>
 
                                 </tr>
-
 
                                 <tr>
 
@@ -725,7 +727,6 @@ namespace ShantiEnterprises.API.Services
 
                                 </tr>
 
-
                                 <tr>
 
                                     <td style="padding:6px;">
@@ -737,7 +738,6 @@ namespace ShantiEnterprises.API.Services
                                     </td>
 
                                 </tr>
-
 
                                 <tr>
 
@@ -755,9 +755,7 @@ namespace ShantiEnterprises.API.Services
 
                             </table>
 
-
                             <hr />
-
 
                             <h3>Delivery Address</h3>
 
@@ -779,14 +777,12 @@ namespace ShantiEnterprises.API.Services
 
                             </p>
 
-
                             <p style="margin-top:30px;">
 
                                 Thank you for choosing
                                 <strong>Shanti Enterprises</strong>.
 
                             </p>
-
 
                             <p>
 
@@ -809,15 +805,13 @@ namespace ShantiEnterprises.API.Services
                 }
             }
 
-
             // =========================
-            // 11. RESPONSE
+            // 12. RESPONSE
             // =========================
 
             return MapToResponse(
                 createdOrder);
         }
-
 
         // ==========================================
         // GET MY ORDERS
@@ -828,14 +822,14 @@ namespace ShantiEnterprises.API.Services
                 int userId)
         {
             var orders =
-                await _orderRepository.GetByUserIdAsync(
-                    userId);
+                await _orderRepository
+                    .GetByUserIdAsync(
+                        userId);
 
             return orders
                 .Select(MapToResponse)
                 .ToList();
         }
-
 
         // ==========================================
         // GET MY ORDER BY ID
@@ -847,9 +841,10 @@ namespace ShantiEnterprises.API.Services
                 int orderId)
         {
             var order =
-                await _orderRepository.GetByIdAsync(
-                    orderId,
-                    userId);
+                await _orderRepository
+                    .GetByIdAsync(
+                        orderId,
+                        userId);
 
             if (order == null)
             {
@@ -860,9 +855,16 @@ namespace ShantiEnterprises.API.Services
                 order);
         }
 
-
         // ==========================================
         // PRICE CALCULATION
+        // ==========================================
+        //
+        // Priority:
+        // 1. Matching admin price tier
+        // 2. Retail price
+        //
+        // WholesalePrice is intentionally NOT
+        // used as fallback.
         // ==========================================
 
         private async Task<decimal>
@@ -876,38 +878,77 @@ namespace ShantiEnterprises.API.Services
                         product.ProductId);
 
             var tier =
-                tiers.FirstOrDefault(x =>
-                    quantity >= x.MinQuantity &&
-                    (!x.MaxQuantity.HasValue ||
-                     quantity <= x.MaxQuantity.Value));
+                tiers
+                    .OrderByDescending(
+                        x => x.MinQuantity)
+                    .FirstOrDefault(
+                        x =>
+                            quantity >=
+                                x.MinQuantity
+                            &&
+                            (
+                                !x.MaxQuantity.HasValue
+                                ||
+                                quantity <=
+                                    x.MaxQuantity.Value
+                            ));
 
             if (tier != null)
             {
                 return tier.Price;
             }
 
-            return product.WholesalePrice;
+            return product.RetailPrice;
         }
 
+        // ==========================================
+        // SHIPPING CALCULATION
+        // ==========================================
+        //
+        // One shipping charge per distinct
+        // cart product line.
+        //
+        // Same product quantity does not
+        // multiply shipping.
+        // ==========================================
+
+        private static decimal
+            CalculateShippingCharge(
+                IEnumerable<CartItem> cartItems)
+        {
+            return cartItems
+                .Where(
+                    x => x.Product != null)
+                .Sum(
+                    x =>
+                        Math.Max(
+                            0,
+                            x.Product!
+                                .ShippingCharge));
+        }
 
         // ==========================================
         // ORDER NUMBER
         // ==========================================
 
-        private static string GenerateOrderNumber()
+        private static string
+            GenerateOrderNumber()
         {
-            return $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
-                .Substring(0, 24)
+            return
+                $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"
+                .Substring(
+                    0,
+                    24)
                 .ToUpper();
         }
-
 
         // ==========================================
         // RESPONSE MAPPING
         // ==========================================
 
-        private static OrderResponseDto MapToResponse(
-            Order order)
+        private static OrderResponseDto
+            MapToResponse(
+                Order order)
         {
             return new OrderResponseDto
             {
@@ -973,35 +1014,37 @@ namespace ShantiEnterprises.API.Services
 
                 Items =
                     order.OrderItems
-                        .Select(x => new OrderItemResponseDto
-                        {
-                            OrderItemId =
-                                x.OrderItemId,
+                        .Select(
+                            x =>
+                                new OrderItemResponseDto
+                                {
+                                    OrderItemId =
+                                        x.OrderItemId,
 
-                            ProductId =
-                                x.ProductId,
+                                    ProductId =
+                                        x.ProductId,
 
-                            ProductName =
-                                x.ProductName,
+                                    ProductName =
+                                        x.ProductName,
 
-                            SKU =
-                                x.SKU,
+                                    SKU =
+                                        x.SKU,
 
-                            Quantity =
-                                x.Quantity,
+                                    Quantity =
+                                        x.Quantity,
 
-                            UnitPrice =
-                                x.UnitPrice,
+                                    UnitPrice =
+                                        x.UnitPrice,
 
-                            GSTPercentage =
-                                x.GSTPercentage,
+                                    GSTPercentage =
+                                        x.GSTPercentage,
 
-                            GSTAmount =
-                                x.GSTAmount,
+                                    GSTAmount =
+                                        x.GSTAmount,
 
-                            TotalPrice =
-                                x.TotalPrice
-                        })
+                                    TotalPrice =
+                                        x.TotalPrice
+                                })
                         .ToList()
             };
         }

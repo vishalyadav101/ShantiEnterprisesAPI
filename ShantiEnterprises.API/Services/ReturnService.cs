@@ -8,13 +8,16 @@ namespace ShantiEnterprises.API.Services
     {
         private readonly IReturnRepository _returnRepository;
         private readonly IRefundRepository _refundRepository;
+        private readonly INotificationService _notificationService;
 
         public ReturnService(
             IReturnRepository returnRepository,
-            IRefundRepository refundRepository)
+            IRefundRepository refundRepository,
+            INotificationService notificationService)
         {
             _returnRepository = returnRepository;
             _refundRepository = refundRepository;
+            _notificationService = notificationService;
         }
 
 
@@ -27,15 +30,32 @@ namespace ShantiEnterprises.API.Services
             int userId,
             ReturnCreateDto dto)
         {
+            // ==========================================
+            // BASIC VALIDATION
+            // ==========================================
+
             if (dto.OrderId <= 0)
-                throw new Exception("Invalid order ID.");
+            {
+                throw new Exception(
+                    "Invalid order ID.");
+            }
 
             if (dto.OrderItemId <= 0)
-                throw new Exception("Invalid order item ID.");
+            {
+                throw new Exception(
+                    "Invalid order item ID.");
+            }
 
             if (string.IsNullOrWhiteSpace(dto.Reason))
-                throw new Exception("Return reason is required.");
+            {
+                throw new Exception(
+                    "Return reason is required.");
+            }
 
+
+            // ==========================================
+            // EXISTING RETURNS
+            // ==========================================
 
             var existingReturns =
                 await _returnRepository
@@ -52,7 +72,6 @@ namespace ShantiEnterprises.API.Services
                     x.OrderItemId == dto.OrderItemId &&
                     x.ReturnStatus != "Rejected");
 
-
             if (duplicateReturn != null)
             {
                 throw new Exception(
@@ -66,8 +85,8 @@ namespace ShantiEnterprises.API.Services
 
             var order =
                 await _returnRepository
-                    .GetOrderForReturnAsync(dto.OrderId);
-
+                    .GetOrderForReturnAsync(
+                        dto.OrderId);
 
             if (order == null)
             {
@@ -110,7 +129,6 @@ namespace ShantiEnterprises.API.Services
                     .FirstOrDefault(x =>
                         x.OrderItemId == dto.OrderItemId);
 
-
             if (orderItem == null)
             {
                 throw new Exception(
@@ -124,42 +142,66 @@ namespace ShantiEnterprises.API.Services
 
             var returnRequest = new Return
             {
-                OrderId = order.OrderId,
+                OrderId =
+                    order.OrderId,
 
-                OrderItemId = orderItem.OrderItemId,
+                OrderItemId =
+                    orderItem.OrderItemId,
 
-                UserId = userId,
+                UserId =
+                    userId,
 
-                Reason = dto.Reason.Trim(),
+                Reason =
+                    dto.Reason.Trim(),
 
                 Description =
                     string.IsNullOrWhiteSpace(dto.Description)
                         ? null
                         : dto.Description.Trim(),
 
-                ReturnStatus = "Pending",
+                ReturnStatus =
+                    "Pending",
 
-                RequestedDate = DateTime.UtcNow,
+                RequestedDate =
+                    DateTime.UtcNow,
 
-                CreatedDate = DateTime.UtcNow
+                CreatedDate =
+                    DateTime.UtcNow
             };
 
 
             var createdReturn =
                 await _returnRepository
-                    .CreateAsync(returnRequest);
+                    .CreateAsync(
+                        returnRequest);
+
+
+            // ==========================================
+            // ATTACH NAVIGATION DATA
+            // ==========================================
+
+            createdReturn.Order =
+                order;
+
+            createdReturn.OrderItem =
+                orderItem;
+
+
+            // ==========================================
+            // CREATE CUSTOMER NOTIFICATION
+            // ==========================================
+
+            await CreateReturnNotificationAsync(
+                createdReturn,
+                "ReturnRequested");
 
 
             // ==========================================
             // RESPONSE
             // ==========================================
 
-            createdReturn.Order = order;
-
-            createdReturn.OrderItem = orderItem;
-
-
-            return MapToResponse(createdReturn);
+            return MapToResponse(
+                createdReturn);
         }
 
 
@@ -168,7 +210,8 @@ namespace ShantiEnterprises.API.Services
         // ADMIN
         // ==========================================
 
-        public async Task<List<ReturnResponseDto>> GetAllAsync()
+        public async Task<List<ReturnResponseDto>>
+            GetAllAsync()
         {
             var returns =
                 await _returnRepository
@@ -182,17 +225,19 @@ namespace ShantiEnterprises.API.Services
 
         // ==========================================
         // GET RETURN BY ID
+        // ADMIN / CUSTOMER
         // ==========================================
 
-        public async Task<ReturnResponseDto> GetByIdAsync(
-            int returnId,
-            int userId,
-            bool isAdmin)
+        public async Task<ReturnResponseDto>
+            GetByIdAsync(
+                int returnId,
+                int userId,
+                bool isAdmin)
         {
             var returnRequest =
                 await _returnRepository
-                    .GetByIdAsync(returnId);
-
+                    .GetByIdAsync(
+                        returnId);
 
             if (returnRequest == null)
             {
@@ -213,7 +258,8 @@ namespace ShantiEnterprises.API.Services
             }
 
 
-            return MapToResponse(returnRequest);
+            return MapToResponse(
+                returnRequest);
         }
 
 
@@ -222,12 +268,14 @@ namespace ShantiEnterprises.API.Services
         // CUSTOMER
         // ==========================================
 
-        public async Task<List<ReturnResponseDto>> GetByUserIdAsync(
-            int userId)
+        public async Task<List<ReturnResponseDto>>
+            GetByUserIdAsync(
+                int userId)
         {
             var returns =
                 await _returnRepository
-                    .GetByUserIdAsync(userId);
+                    .GetByUserIdAsync(
+                        userId);
 
             return returns
                 .Select(MapToResponse)
@@ -240,14 +288,15 @@ namespace ShantiEnterprises.API.Services
         // ADMIN
         // ==========================================
 
-        public async Task<ReturnResponseDto> UpdateStatusAsync(
-            int returnId,
-            ReturnUpdateDto dto)
+        public async Task<ReturnResponseDto>
+            UpdateStatusAsync(
+                int returnId,
+                ReturnUpdateDto dto)
         {
             var returnRequest =
                 await _returnRepository
-                    .GetByIdAsync(returnId);
-
+                    .GetByIdAsync(
+                        returnId);
 
             if (returnRequest == null)
             {
@@ -255,6 +304,10 @@ namespace ShantiEnterprises.API.Services
                     "Return request not found.");
             }
 
+
+            // ==========================================
+            // VALIDATE STATUS
+            // ==========================================
 
             if (string.IsNullOrWhiteSpace(
                     dto.ReturnStatus))
@@ -301,19 +354,25 @@ namespace ShantiEnterprises.API.Services
 
 
             // ==========================================
+            // OLD STATUS
+            // ==========================================
+
+            var oldStatus =
+                returnRequest.ReturnStatus;
+
+
+            // ==========================================
             // UPDATE STATUS
             // ==========================================
 
             returnRequest.ReturnStatus =
                 newStatus;
 
-
             returnRequest.AdminComment =
                 string.IsNullOrWhiteSpace(
                     dto.AdminComment)
                     ? null
                     : dto.AdminComment.Trim();
-
 
             returnRequest.UpdatedDate =
                 DateTime.UtcNow;
@@ -365,7 +424,6 @@ namespace ShantiEnterprises.API.Services
                         "Product must be received before refund processing.");
                 }
 
-
                 if (returnRequest.Refund == null)
                 {
                     throw new Exception(
@@ -401,17 +459,38 @@ namespace ShantiEnterprises.API.Services
                         "Refund must be completed before completing return.");
                 }
 
-
                 returnRequest.CompletedDate =
                     DateTime.UtcNow;
             }
 
 
+            // ==========================================
+            // SAVE
+            // ==========================================
+
             await _returnRepository
-                .UpdateAsync(returnRequest);
+                .UpdateAsync(
+                    returnRequest);
 
 
-            return MapToResponse(returnRequest);
+            // ==========================================
+            // CUSTOMER NOTIFICATION
+            // ONLY WHEN STATUS CHANGES
+            // ==========================================
+
+            if (!string.Equals(
+                    oldStatus,
+                    newStatus,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await CreateReturnNotificationAsync(
+                    returnRequest,
+                    newStatus);
+            }
+
+
+            return MapToResponse(
+                returnRequest);
         }
 
 
@@ -425,8 +504,8 @@ namespace ShantiEnterprises.API.Services
         {
             var returnRequest =
                 await _returnRepository
-                    .GetByIdAsync(returnId);
-
+                    .GetByIdAsync(
+                        returnId);
 
             if (returnRequest == null)
             {
@@ -434,6 +513,10 @@ namespace ShantiEnterprises.API.Services
                     "Return request not found.");
             }
 
+
+            // ==========================================
+            // ONLY PENDING / REJECTED CAN BE DELETED
+            // ==========================================
 
             if (returnRequest.ReturnStatus != "Pending" &&
                 returnRequest.ReturnStatus != "Rejected")
@@ -444,7 +527,137 @@ namespace ShantiEnterprises.API.Services
 
 
             await _returnRepository
-                .DeleteAsync(returnRequest);
+                .DeleteAsync(
+                    returnRequest);
+        }
+
+
+        // ==========================================
+        // CREATE RETURN NOTIFICATION
+        // ==========================================
+
+        private async Task
+            CreateReturnNotificationAsync(
+                Return returnRequest,
+                string eventStatus)
+        {
+            string title;
+
+            string message;
+
+
+            var orderNumber =
+                returnRequest.Order?.OrderNumber
+                ?? $"#{returnRequest.OrderId}";
+
+
+            switch (
+                eventStatus.ToLower())
+            {
+                case "returnrequested":
+
+                    title =
+                        "Return Requested";
+
+                    message =
+                        $"Your return request for order {orderNumber} has been submitted successfully.";
+
+                    break;
+
+
+                case "approved":
+
+                    title =
+                        "Return Approved";
+
+                    message =
+                        $"Your return request for order {orderNumber} has been approved.";
+
+                    break;
+
+
+                case "rejected":
+
+                    title =
+                        "Return Rejected";
+
+                    message =
+                        $"Your return request for order {orderNumber} has been rejected.";
+
+                    if (!string.IsNullOrWhiteSpace(
+                        returnRequest.AdminComment))
+                    {
+                        message +=
+                            $" Reason: {returnRequest.AdminComment}";
+                    }
+
+                    break;
+
+
+                case "productreceived":
+
+                    title =
+                        "Returned Product Received";
+
+                    message =
+                        $"Your returned product for order {orderNumber} has been received.";
+
+                    break;
+
+
+                case "refundprocessing":
+
+                    title =
+                        "Refund Processing";
+
+                    message =
+                        $"Your refund for order {orderNumber} is now being processed.";
+
+                    break;
+
+
+                case "completed":
+
+                    title =
+                        "Return Completed";
+
+                    message =
+                        $"Your return and refund process for order {orderNumber} has been completed successfully.";
+
+                    break;
+
+
+                default:
+
+                    title =
+                        "Return Status Updated";
+
+                    message =
+                        $"Your return for order {orderNumber} has been updated to {returnRequest.ReturnStatus}.";
+
+                    break;
+            }
+
+
+            await _notificationService.CreateAsync(
+                returnRequest.UserId,
+                new DTOs.Notification.CreateNotificationDto
+                {
+                    Title =
+                        title,
+
+                    Message =
+                        message,
+
+                    Type =
+                        "Return",
+
+                    ReferenceType =
+                        "Order",
+
+                    ReferenceId =
+                        returnRequest.OrderId
+                });
         }
 
 
@@ -452,8 +665,9 @@ namespace ShantiEnterprises.API.Services
         // MAPPING
         // ==========================================
 
-        private static ReturnResponseDto MapToResponse(
-            Return returnRequest)
+        private static ReturnResponseDto
+            MapToResponse(
+                Return returnRequest)
         {
             var orderItem =
                 returnRequest.OrderItem;

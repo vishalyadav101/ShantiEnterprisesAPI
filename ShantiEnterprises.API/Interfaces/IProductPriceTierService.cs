@@ -10,6 +10,11 @@ namespace ShantiEnterprises.API.Interfaces
         Task<ProductPriceTierResponseDto>
             CreateAsync(ProductPriceTierCreateDto dto);
 
+        Task<ProductPriceTierResponseDto?>
+            UpdateAsync(
+                int id,
+                ProductPriceTierCreateDto dto);
+
         Task<bool> DeleteAsync(int id);
     }
 }

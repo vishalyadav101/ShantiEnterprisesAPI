@@ -33,11 +33,14 @@ namespace ShantiEnterprises.API.Services
             _httpContextAccessor = httpContextAccessor;
         }
 
-
         public async Task<ProductImageResponseDto> UploadAsync(
             int productId,
             ProductImageUploadDto dto)
         {
+            // -----------------------------------------
+            // Check Product
+            // -----------------------------------------
+
             var product =
                 await _productRepository.GetByIdAsync(productId);
 
@@ -46,12 +49,14 @@ namespace ShantiEnterprises.API.Services
                 throw new Exception("Product not found.");
             }
 
+            // -----------------------------------------
+            // Validate Image
+            // -----------------------------------------
 
             if (dto.Image == null || dto.Image.Length == 0)
             {
                 throw new Exception("Please select an image.");
             }
-
 
             if (dto.Image.Length > MaxFileSize)
             {
@@ -59,11 +64,9 @@ namespace ShantiEnterprises.API.Services
                     "Image size cannot be greater than 5 MB.");
             }
 
-
             var extension =
                 Path.GetExtension(dto.Image.FileName)
                     .ToLowerInvariant();
-
 
             if (!_allowedExtensions.Contains(extension))
             {
@@ -71,6 +74,9 @@ namespace ShantiEnterprises.API.Services
                     "Only JPG, JPEG, PNG and WEBP images are allowed.");
             }
 
+            // -----------------------------------------
+            // Upload Folder
+            // -----------------------------------------
 
             var uploadsFolder = Path.Combine(
                 _environment.WebRootPath,
@@ -78,16 +84,17 @@ namespace ShantiEnterprises.API.Services
                 "products"
             );
 
-
             if (!Directory.Exists(uploadsFolder))
             {
                 Directory.CreateDirectory(uploadsFolder);
             }
 
+            // -----------------------------------------
+            // Generate Unique File Name
+            // -----------------------------------------
 
             var fileName =
                 $"{Guid.NewGuid()}{extension}";
-
 
             var filePath =
                 Path.Combine(
@@ -95,24 +102,38 @@ namespace ShantiEnterprises.API.Services
                     fileName
                 );
 
+            // -----------------------------------------
+            // Save Physical File
+            // -----------------------------------------
 
             await using (var stream =
-                new FileStream(filePath, FileMode.Create))
+                new FileStream(
+                    filePath,
+                    FileMode.Create))
             {
                 await dto.Image.CopyToAsync(stream);
             }
 
+            // -----------------------------------------
+            // Generate Image URL
+            // -----------------------------------------
 
             var request =
                 _httpContextAccessor.HttpContext?.Request;
 
+            if (request == null)
+            {
+                throw new Exception(
+                    "Unable to create image URL.");
+            }
 
             var imageUrl =
-                $"{request?.Scheme}://{request?.Host}/uploads/products/{fileName}";
+                $"{request.Scheme}://{request.Host}/uploads/products/{fileName}";
 
+            // -----------------------------------------
+            // Primary Image Handling
+            // -----------------------------------------
 
-            // If this image is primary,
-            // make all existing images non-primary
             if (dto.IsPrimary)
             {
                 var existingImages =
@@ -124,22 +145,43 @@ namespace ShantiEnterprises.API.Services
                 }
             }
 
+            // -----------------------------------------
+            // Create ProductImage
+            // -----------------------------------------
 
             var productImage = new ProductImage
             {
                 ProductId = productId,
+
                 ImageUrl = imageUrl,
+
                 IsPrimary = dto.IsPrimary
             };
 
+            // -----------------------------------------
+            // Save ProductImage
+            // -----------------------------------------
 
             var savedImage =
                 await _repository.AddAsync(productImage);
 
+            // -----------------------------------------
+            // Update Product Main Image
+            // -----------------------------------------
+
+            if (dto.IsPrimary)
+            {
+                product.ImageUrl = imageUrl;
+
+                await _productRepository.UpdateAsync(product);
+            }
+
+            // -----------------------------------------
+            // Return Response
+            // -----------------------------------------
 
             return MapToResponse(savedImage);
         }
-
 
         public async Task<List<ProductImageResponseDto>>
             GetByProductIdAsync(int productId)
@@ -152,9 +194,12 @@ namespace ShantiEnterprises.API.Services
                 .ToList();
         }
 
-
         public async Task<bool> DeleteAsync(int id)
         {
+            // -----------------------------------------
+            // Get Image
+            // -----------------------------------------
+
             var image =
                 await _repository.GetByIdAsync(id);
 
@@ -163,20 +208,28 @@ namespace ShantiEnterprises.API.Services
                 return false;
             }
 
+            // -----------------------------------------
+            // Delete Database Record
+            // -----------------------------------------
 
             var result =
                 await _repository.DeleteAsync(id);
 
+            // -----------------------------------------
+            // Delete Physical File
+            // -----------------------------------------
 
             if (result)
             {
                 DeletePhysicalFile(image.ImageUrl);
             }
 
-
             return result;
         }
 
+        // -----------------------------------------
+        // Map Response
+        // -----------------------------------------
 
         private static ProductImageResponseDto MapToResponse(
             ProductImage image)
@@ -197,11 +250,19 @@ namespace ShantiEnterprises.API.Services
             };
         }
 
+        // -----------------------------------------
+        // Delete Physical Image
+        // -----------------------------------------
 
         private void DeletePhysicalFile(string imageUrl)
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(imageUrl))
+                {
+                    return;
+                }
+
                 var uri =
                     new Uri(imageUrl);
 

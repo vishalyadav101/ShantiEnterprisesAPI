@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ShantiEnterprises.API.DTOs.Category;
 using ShantiEnterprises.API.Interfaces;
-using ShantiEnterprises.API.Services;
 
 namespace ShantiEnterprises.API.Controllers
 {
@@ -12,29 +11,41 @@ namespace ShantiEnterprises.API.Controllers
     {
         private readonly ICategoryService _service;
 
-        public CategoryController(ICategoryService service)
+        public CategoryController(
+            ICategoryService service)
         {
             _service = service;
         }
 
 
+        // =========================================================
+        // GET ALL
         // GET: api/Category
+        // =========================================================
+
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetAll()
         {
-            var categories = await _service.GetAllAsync();
+            var categories =
+                await _service.GetAllAsync();
 
             return Ok(categories);
         }
 
 
+        // =========================================================
+        // GET BY ID
         // GET: api/Category/1
+        // =========================================================
+
         [HttpGet("{id:int}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById(
+            int id)
         {
-            var category = await _service.GetByIdAsync(id);
+            var category =
+                await _service.GetByIdAsync(id);
 
             if (category == null)
             {
@@ -48,19 +59,27 @@ namespace ShantiEnterprises.API.Controllers
         }
 
 
+        // =========================================================
+        // CREATE CATEGORY
         // POST: api/Category
+        // =========================================================
+
         [HttpPost]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create(
-            CategoryCreateDto dto)
+            [FromForm] CategoryCreateDto dto)
         {
             try
             {
-                var category = await _service.CreateAsync(dto);
+                var category =
+                    await _service.CreateAsync(dto);
 
                 return CreatedAtAction(
                     nameof(GetById),
-                    new { id = category.CategoryId },
+                    new
+                    {
+                        id = category.CategoryId
+                    },
                     category);
             }
             catch (Exception ex)
@@ -73,23 +92,30 @@ namespace ShantiEnterprises.API.Controllers
         }
 
 
+        // =========================================================
+        // UPDATE CATEGORY
         // PUT: api/Category/1
+        // =========================================================
+
         [HttpPut("{id:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(
             int id,
-            CategoryUpdateDto dto)
+            [FromForm] CategoryUpdateDto dto)
         {
             try
             {
                 var category =
-                    await _service.UpdateAsync(id, dto);
+                    await _service.UpdateAsync(
+                        id,
+                        dto);
 
                 if (category == null)
                 {
                     return NotFound(new
                     {
-                        message = "Category not found."
+                        message =
+                            "Category not found."
                     });
                 }
 
@@ -105,24 +131,32 @@ namespace ShantiEnterprises.API.Controllers
         }
 
 
+        // =========================================================
+        // DELETE CATEGORY
         // DELETE: api/Category/1
+        // =========================================================
+
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(
+            int id)
         {
-            var deleted = await _service.DeleteAsync(id);
+            var deleted =
+                await _service.DeleteAsync(id);
 
             if (!deleted)
             {
                 return NotFound(new
                 {
-                    message = "Category not found."
+                    message =
+                        "Category not found."
                 });
             }
 
             return Ok(new
             {
-                message = "Category deleted successfully."
+                message =
+                    "Category deleted successfully."
             });
         }
     }

@@ -267,6 +267,16 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddControllers();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AngularPolicy", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:4200")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 // =========================
 // DATABASE
@@ -371,6 +381,7 @@ if (app.Environment.IsDevelopment())
 // =========================
 
 app.UseHttpsRedirection();
+app.UseCors("AngularPolicy");
 
 
 // =========================

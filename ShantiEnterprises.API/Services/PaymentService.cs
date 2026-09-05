@@ -16,6 +16,7 @@ namespace ShantiEnterprises.API.Services
         private readonly RazorpaySettings _razorpaySettings;
         private readonly IUserRepository _userRepository;
         private readonly IEmailService _emailService;
+        private readonly INotificationService _notificationService;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
@@ -23,7 +24,8 @@ namespace ShantiEnterprises.API.Services
             IAuditLogService auditLogService,
             IOptions<RazorpaySettings> razorpaySettings,
             IUserRepository userRepository,
-            IEmailService emailService)
+            IEmailService emailService,
+            INotificationService notificationService)
         {
             _paymentRepository = paymentRepository;
             _orderRepository = orderRepository;
@@ -31,6 +33,7 @@ namespace ShantiEnterprises.API.Services
             _razorpaySettings = razorpaySettings.Value;
             _userRepository = userRepository;
             _emailService = emailService;
+            _notificationService = notificationService;
         }
 
 
@@ -173,6 +176,35 @@ namespace ShantiEnterprises.API.Services
 
 
             createdPayment.Order = order;
+
+
+            // =====================================================
+            // CREATE PAYMENT NOTIFICATION
+            // =====================================================
+
+            await _notificationService.CreateAsync(
+                userId,
+                new DTOs.Notification.CreateNotificationDto
+                {
+                    Title =
+                        paymentMethod == "CashOnDelivery"
+                            ? "Order Confirmed"
+                            : "Payment Initiated",
+
+                    Message =
+                        paymentMethod == "CashOnDelivery"
+                            ? $"Your order {order.OrderNumber} has been confirmed. Payment will be collected on delivery."
+                            : $"Payment for order {order.OrderNumber} has been initiated and is awaiting confirmation.",
+
+                    Type =
+                        "Payment",
+
+                    ReferenceType =
+                        "Order",
+
+                    ReferenceId =
+                        order.OrderId
+                });
 
 
             // =====================================================
@@ -555,6 +587,31 @@ namespace ShantiEnterprises.API.Services
 
 
                 // =================================================
+                // PAYMENT FAILED NOTIFICATION
+                // =================================================
+
+                await _notificationService.CreateAsync(
+                    userId,
+                    new DTOs.Notification.CreateNotificationDto
+                    {
+                        Title =
+                            "Payment Failed",
+
+                        Message =
+                            $"Payment verification failed for order {payment.Order.OrderNumber}.",
+
+                        Type =
+                            "Payment",
+
+                        ReferenceType =
+                            "Order",
+
+                        ReferenceId =
+                            payment.Order.OrderId
+                    });
+
+
+                // =================================================
                 // AUDIT LOG - FAILED PAYMENT
                 // =================================================
 
@@ -611,6 +668,31 @@ namespace ShantiEnterprises.API.Services
 
             await _orderRepository.UpdateAsync(
                 payment.Order);
+
+
+            // =====================================================
+            // PAYMENT SUCCESS NOTIFICATION
+            // =====================================================
+
+            await _notificationService.CreateAsync(
+                userId,
+                new DTOs.Notification.CreateNotificationDto
+                {
+                    Title =
+                        "Payment Successful",
+
+                    Message =
+                        $"Payment for order {payment.Order.OrderNumber} has been received successfully.",
+
+                    Type =
+                        "Payment",
+
+                    ReferenceType =
+                        "Order",
+
+                    ReferenceId =
+                        payment.Order.OrderId
+                });
 
 
             // =====================================================

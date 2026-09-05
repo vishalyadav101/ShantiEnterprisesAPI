@@ -18,7 +18,24 @@ namespace ShantiEnterprises.API.Services
         }
 
         // ==========================================
+        // GET ALL REVIEWS
+        // ADMIN
+        // ==========================================
+
+        public async Task<List<ReviewResponseDto>>
+            GetAllAsync()
+        {
+            var reviews =
+                await _reviewRepository.GetAllAsync();
+
+            return reviews
+                .Select(MapToResponse)
+                .ToList();
+        }
+
+        // ==========================================
         // GET REVIEWS BY PRODUCT
+        // CUSTOMER
         // ==========================================
 
         public async Task<List<ReviewResponseDto>>
@@ -70,6 +87,7 @@ namespace ShantiEnterprises.API.Services
                     reviews.Count
             };
         }
+
         // ==========================================
         // GET REVIEW BY ID
         // ==========================================
@@ -161,7 +179,10 @@ namespace ShantiEnterprises.API.Services
             await _reviewRepository.CreateAsync(
                 review);
 
-            // Reload with User
+            // =========================
+            // RELOAD WITH USER
+            // =========================
+
             review =
                 await _reviewRepository.GetByIdAsync(
                     review.ReviewId);
@@ -215,8 +236,6 @@ namespace ShantiEnterprises.API.Services
             review.UpdatedDate =
                 DateTime.UtcNow;
 
-            // Updated review can go through
-            // approval again if moderation is added later.
             review.IsApproved = true;
 
             await _reviewRepository.UpdateAsync(

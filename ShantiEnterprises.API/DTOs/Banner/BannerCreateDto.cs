@@ -1,4 +1,6 @@
-﻿namespace ShantiEnterprises.API.DTOs.Banner
+﻿using Microsoft.AspNetCore.Http;
+
+namespace ShantiEnterprises.API.DTOs.Banner
 {
     public class BannerCreateDto
     {
@@ -8,8 +10,8 @@
         public string Subtitle { get; set; }
             = string.Empty;
 
-        public string ImageUrl { get; set; }
-            = string.Empty;
+        // Actual banner image upload
+        public IFormFile Image { get; set; } = null!;
 
         public string? ButtonText { get; set; }
 

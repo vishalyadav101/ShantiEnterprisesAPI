@@ -14,17 +14,43 @@ namespace ShantiEnterprises.API.DTOs.Product
         [Required]
         public int CategoryId { get; set; }
 
+        // =========================================================
+        // PRICING
+        // =========================================================
+
         [Range(0.01, double.MaxValue)]
         public decimal MRP { get; set; }
 
         [Range(0.01, double.MaxValue)]
+        public decimal RetailPrice { get; set; }
+
+        [Range(0.01, double.MaxValue)]
         public decimal WholesalePrice { get; set; }
+
+        // =========================================================
+        // SHIPPING
+        // =========================================================
+
+        [Range(0, double.MaxValue)]
+        public decimal ShippingCharge { get; set; }
+
+        // =========================================================
+        // STOCK
+        // =========================================================
 
         [Range(0, int.MaxValue)]
         public int Stock { get; set; }
 
+        // =========================================================
+        // GST
+        // =========================================================
+
         [Range(0, 100)]
         public decimal GSTPercentage { get; set; }
+
+        // =========================================================
+        // OTHER
+        // =========================================================
 
         [Required]
         [MaxLength(50)]

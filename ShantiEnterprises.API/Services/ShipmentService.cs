@@ -8,13 +8,16 @@ namespace ShantiEnterprises.API.Services
     {
         private readonly IShipmentRepository _shipmentRepository;
         private readonly IOrderRepository _orderRepository;
+        private readonly INotificationService _notificationService;
 
         public ShipmentService(
             IShipmentRepository shipmentRepository,
-            IOrderRepository orderRepository)
+            IOrderRepository orderRepository,
+            INotificationService notificationService)
         {
             _shipmentRepository = shipmentRepository;
             _orderRepository = orderRepository;
+            _notificationService = notificationService;
         }
 
 
@@ -39,7 +42,8 @@ namespace ShantiEnterprises.API.Services
         // ==========================================
 
         public async Task<ShipmentResponseDto>
-            GetByIdAsync(int shipmentId)
+            GetByIdAsync(
+                int shipmentId)
         {
             var shipment =
                 await _shipmentRepository.GetByIdAsync(
@@ -51,7 +55,8 @@ namespace ShantiEnterprises.API.Services
                     "Shipment not found.");
             }
 
-            return MapToResponse(shipment);
+            return MapToResponse(
+                shipment);
         }
 
 
@@ -84,13 +89,15 @@ namespace ShantiEnterprises.API.Services
                 }
             }
 
+
             // =========================
             // GET SHIPMENT
             // =========================
 
             var shipment =
                 await _shipmentRepository
-                    .GetByOrderIdAsync(orderId);
+                    .GetByOrderIdAsync(
+                        orderId);
 
             if (shipment == null)
             {
@@ -98,7 +105,8 @@ namespace ShantiEnterprises.API.Services
                     "Shipment not found for this order.");
             }
 
-            return MapToResponse(shipment);
+            return MapToResponse(
+                shipment);
         }
 
 
@@ -107,7 +115,8 @@ namespace ShantiEnterprises.API.Services
         // ==========================================
 
         public async Task<ShipmentResponseDto>
-            CreateAsync(ShipmentCreateDto dto)
+            CreateAsync(
+                ShipmentCreateDto dto)
         {
             // =========================
             // CHECK ORDER
@@ -115,7 +124,8 @@ namespace ShantiEnterprises.API.Services
 
             var order =
                 await _orderRepository
-                    .GetByIdForAdminAsync(dto.OrderId);
+                    .GetByIdForAdminAsync(
+                        dto.OrderId);
 
             if (order == null)
             {
@@ -130,7 +140,8 @@ namespace ShantiEnterprises.API.Services
 
             var existingShipment =
                 await _shipmentRepository
-                    .GetByOrderIdAsync(dto.OrderId);
+                    .GetByOrderIdAsync(
+                        dto.OrderId);
 
             if (existingShipment != null)
             {
@@ -145,7 +156,8 @@ namespace ShantiEnterprises.API.Services
 
             var shipment = new Shipment
             {
-                OrderId = dto.OrderId,
+                OrderId =
+                    dto.OrderId,
 
                 CourierName =
                     dto.CourierName,
@@ -178,15 +190,33 @@ namespace ShantiEnterprises.API.Services
                     DateTime.UtcNow
             };
 
+
             await _shipmentRepository
-                .AddAsync(shipment);
+                .AddAsync(
+                    shipment);
 
 
-            // Reload with Order
+            // =========================
+            // RELOAD WITH ORDER
+            // =========================
+
             shipment =
                 await _shipmentRepository
                     .GetByIdAsync(
                         shipment.ShipmentId);
+
+
+            // =========================
+            // CREATE CUSTOMER NOTIFICATION
+            // =========================
+
+            if (shipment?.Order != null)
+            {
+                await CreateShipmentNotificationAsync(
+                    shipment,
+                    "Created");
+            }
+
 
             return MapToResponse(
                 shipment!);
@@ -204,13 +234,22 @@ namespace ShantiEnterprises.API.Services
         {
             var shipment =
                 await _shipmentRepository
-                    .GetByIdAsync(shipmentId);
+                    .GetByIdAsync(
+                        shipmentId);
 
             if (shipment == null)
             {
                 throw new Exception(
                     "Shipment not found.");
             }
+
+
+            // =========================
+            // KEEP OLD STATUS
+            // =========================
+
+            var oldStatus =
+                shipment.ShipmentStatus;
 
 
             // =========================
@@ -223,11 +262,13 @@ namespace ShantiEnterprises.API.Services
                     dto.CourierName;
             }
 
+
             if (dto.TrackingNumber != null)
             {
                 shipment.TrackingNumber =
                     dto.TrackingNumber;
             }
+
 
             if (dto.TrackingUrl != null)
             {
@@ -235,11 +276,13 @@ namespace ShantiEnterprises.API.Services
                     dto.TrackingUrl;
             }
 
+
             if (dto.ShippingMethod != null)
             {
                 shipment.ShippingMethod =
                     dto.ShippingMethod;
             }
+
 
             if (dto.StatusDescription != null)
             {
@@ -247,17 +290,20 @@ namespace ShantiEnterprises.API.Services
                     dto.StatusDescription;
             }
 
+
             if (dto.EstimatedDeliveryDate.HasValue)
             {
                 shipment.EstimatedDeliveryDate =
                     dto.EstimatedDeliveryDate;
             }
 
+
             if (dto.DeliveredTo != null)
             {
                 shipment.DeliveredTo =
                     dto.DeliveredTo;
             }
+
 
             if (dto.DeliveryNotes != null)
             {
@@ -282,11 +328,40 @@ namespace ShantiEnterprises.API.Services
             shipment.UpdatedDate =
                 DateTime.UtcNow;
 
+
             await _shipmentRepository
-                .UpdateAsync(shipment);
+                .UpdateAsync(
+                    shipment);
+
+
+            // =========================
+            // CREATE STATUS NOTIFICATION
+            // ONLY WHEN STATUS CHANGES
+            // =========================
+
+            if (!string.Equals(
+                    oldStatus,
+                    shipment.ShipmentStatus,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                await CreateShipmentNotificationAsync(
+                    shipment,
+                    shipment.ShipmentStatus);
+            }
+
+
+            // =========================
+            // RELOAD
+            // =========================
+
+            var updatedShipment =
+                await _shipmentRepository
+                    .GetByIdAsync(
+                        shipmentId);
+
 
             return MapToResponse(
-                shipment);
+                updatedShipment!);
         }
 
 
@@ -298,6 +373,9 @@ namespace ShantiEnterprises.API.Services
             Shipment shipment,
             string status)
         {
+            var normalizedStatus =
+                status.Trim();
+
             var validStatuses = new[]
             {
                 "Pending",
@@ -312,21 +390,30 @@ namespace ShantiEnterprises.API.Services
                 "Returned"
             };
 
-            if (!validStatuses.Contains(status))
+
+            var matchedStatus =
+                validStatuses.FirstOrDefault(
+                    x => x.Equals(
+                        normalizedStatus,
+                        StringComparison.OrdinalIgnoreCase));
+
+
+            if (matchedStatus == null)
             {
                 throw new Exception(
                     "Invalid shipment status.");
             }
 
+
             shipment.ShipmentStatus =
-                status;
+                matchedStatus;
 
 
             // =========================
             // AUTOMATIC DATES
             // =========================
 
-            switch (status)
+            switch (matchedStatus)
             {
                 case "Shipped":
 
@@ -355,6 +442,176 @@ namespace ShantiEnterprises.API.Services
 
 
         // ==========================================
+        // CREATE SHIPMENT NOTIFICATION
+        // ==========================================
+
+        private async Task
+            CreateShipmentNotificationAsync(
+                Shipment shipment,
+                string eventStatus)
+        {
+            if (shipment.Order == null)
+            {
+                return;
+            }
+
+
+            var userId =
+                shipment.Order.UserId;
+
+
+            string title;
+
+            string message;
+
+
+            switch (eventStatus.ToLower())
+            {
+                case "created":
+
+                    title =
+                        "Shipment Created";
+
+                    message =
+                        $"Your order {shipment.Order.OrderNumber} has been prepared for shipment.";
+
+                    break;
+
+
+                case "shipped":
+
+                    title =
+                        "Order Shipped";
+
+                    message =
+                        $"Your order {shipment.Order.OrderNumber} has been shipped successfully.";
+
+                    break;
+
+
+                case "intransit":
+
+                    title =
+                        "Order In Transit";
+
+                    message =
+                        $"Your order {shipment.Order.OrderNumber} is currently in transit.";
+
+                    break;
+
+
+                case "outfordelivery":
+
+                    title =
+                        "Out for Delivery";
+
+                    message =
+                        $"Your order {shipment.Order.OrderNumber} is out for delivery.";
+
+                    break;
+
+
+                case "delivered":
+
+                    title =
+                        "Order Delivered";
+
+                    message =
+                        $"Your order {shipment.Order.OrderNumber} has been delivered successfully.";
+
+                    break;
+
+
+                case "cancelled":
+
+                    title =
+                        "Shipment Cancelled";
+
+                    message =
+                        $"Shipment for your order {shipment.Order.OrderNumber} has been cancelled.";
+
+                    break;
+
+
+                case "failed":
+
+                    title =
+                        "Shipment Failed";
+
+                    message =
+                        $"There was an issue with the shipment of your order {shipment.Order.OrderNumber}.";
+
+                    break;
+
+
+                case "returned":
+
+                    title =
+                        "Shipment Returned";
+
+                    message =
+                        $"Shipment for your order {shipment.Order.OrderNumber} has been returned.";
+
+                    break;
+
+
+                case "processing":
+
+                    title =
+                        "Shipment Processing";
+
+                    message =
+                        $"Shipment for your order {shipment.Order.OrderNumber} is being processed.";
+
+                    break;
+
+
+                case "readytoship":
+
+                    title =
+                        "Order Ready to Ship";
+
+                    message =
+                        $"Your order {shipment.Order.OrderNumber} is ready to ship.";
+
+                    break;
+
+
+                default:
+
+                    title =
+                        "Shipment Status Updated";
+
+                    message =
+                        $"Shipment status for your order {shipment.Order.OrderNumber} has been updated to {shipment.ShipmentStatus}.";
+
+                    break;
+            }
+
+
+            await _notificationService.CreateAsync(
+                userId,
+                new DTOs.Notification.CreateNotificationDto
+                {
+                    Title =
+                        title,
+
+                    Message =
+                        message,
+
+                    Type =
+                        "Shipment",
+
+                    ReferenceType =
+                        "Order",
+
+                    ReferenceId =
+                        shipment.OrderId
+                });
+        }
+
+
+        // ==========================================
         // DELETE SHIPMENT
         // ==========================================
 
@@ -363,7 +620,8 @@ namespace ShantiEnterprises.API.Services
         {
             var shipment =
                 await _shipmentRepository
-                    .GetByIdAsync(shipmentId);
+                    .GetByIdAsync(
+                        shipmentId);
 
             if (shipment == null)
             {
@@ -371,8 +629,10 @@ namespace ShantiEnterprises.API.Services
                     "Shipment not found.");
             }
 
+
             await _shipmentRepository
-                .DeleteAsync(shipmentId);
+                .DeleteAsync(
+                    shipmentId);
         }
 
 
@@ -381,7 +641,8 @@ namespace ShantiEnterprises.API.Services
         // ==========================================
 
         private static ShipmentResponseDto
-            MapToResponse(Shipment shipment)
+            MapToResponse(
+                Shipment shipment)
         {
             return new ShipmentResponseDto
             {

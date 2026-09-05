@@ -20,6 +20,31 @@ namespace ShantiEnterprises.API.Controllers
         }
 
         // ==========================================
+        // GET ALL REVIEWS
+        // ADMIN
+        // ==========================================
+
+        [HttpGet]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAll()
+        {
+            try
+            {
+                var reviews =
+                    await _reviewService.GetAllAsync();
+
+                return Ok(reviews);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+        // ==========================================
         // GET REVIEWS BY PRODUCT
         // ==========================================
 
@@ -125,7 +150,7 @@ namespace ShantiEnterprises.API.Controllers
 
                 return Ok(review);
             }
-            catch (UnauthorizedAccessException )
+            catch (UnauthorizedAccessException)
             {
                 return Forbid();
             }

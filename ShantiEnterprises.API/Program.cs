@@ -267,16 +267,25 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddControllers();
 
+
+// =========================
+// CORS
+// =========================
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AngularPolicy", policy =>
     {
         policy
-            .WithOrigins("http://localhost:4200")
+            .WithOrigins(
+                "http://localhost:4200",
+                "https://shanti-enterprises-ui-qf9v.vercel.app"
+            )
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
+
 
 // =========================
 // DATABASE
@@ -369,18 +378,23 @@ var app = builder.Build();
 // SWAGGER
 // =========================
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 
 // =========================
 // HTTPS
 // =========================
 
-app.UseHttpsRedirection();
+// Render handles HTTPS at the proxy level.
+// Keep this disabled for the Render container.
+// app.UseHttpsRedirection();
+
+
+// =========================
+// CORS
+// =========================
+
 app.UseCors("AngularPolicy");
 
 

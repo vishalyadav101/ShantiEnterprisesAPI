@@ -8,8 +8,7 @@ namespace ShantiEnterprises.API.Services
     {
         private readonly IProductImageRepository _repository;
         private readonly IProductRepository _productRepository;
-        private readonly IWebHostEnvironment _environment;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICloudinaryService _cloudinaryService;
 
         private readonly string[] _allowedExtensions =
         {
@@ -24,13 +23,11 @@ namespace ShantiEnterprises.API.Services
         public ProductImageService(
             IProductImageRepository repository,
             IProductRepository productRepository,
-            IWebHostEnvironment environment,
-            IHttpContextAccessor httpContextAccessor)
+            ICloudinaryService cloudinaryService)
         {
             _repository = repository;
             _productRepository = productRepository;
-            _environment = environment;
-            _httpContextAccessor = httpContextAccessor;
+            _cloudinaryService = cloudinaryService;
         }
 
         public async Task<ProductImageResponseDto> UploadAsync(
@@ -75,60 +72,16 @@ namespace ShantiEnterprises.API.Services
             }
 
             // -----------------------------------------
-            // Upload Folder
+            // Upload Image To Cloudinary
             // -----------------------------------------
 
-            var uploadsFolder = Path.Combine(
-                _environment.WebRootPath,
-                "uploads",
-                "products"
-            );
-
-            if (!Directory.Exists(uploadsFolder))
-            {
-                Directory.CreateDirectory(uploadsFolder);
-            }
-
-            // -----------------------------------------
-            // Generate Unique File Name
-            // -----------------------------------------
-
-            var fileName =
-                $"{Guid.NewGuid()}{extension}";
-
-            var filePath =
-                Path.Combine(
-                    uploadsFolder,
-                    fileName
+            var uploadResult =
+                await _cloudinaryService.UploadImageAsync(
+                    dto.Image,
+                    "shanti-enterprises/products"
                 );
 
-            // -----------------------------------------
-            // Save Physical File
-            // -----------------------------------------
-
-            await using (var stream =
-                new FileStream(
-                    filePath,
-                    FileMode.Create))
-            {
-                await dto.Image.CopyToAsync(stream);
-            }
-
-            // -----------------------------------------
-            // Generate Image URL
-            // -----------------------------------------
-
-            var request =
-                _httpContextAccessor.HttpContext?.Request;
-
-            if (request == null)
-            {
-                throw new Exception(
-                    "Unable to create image URL.");
-            }
-
-            var imageUrl =
-                $"{request.Scheme}://{request.Host}/uploads/products/{fileName}";
+            var imageUrl = uploadResult.Url;
 
             // -----------------------------------------
             // Primary Image Handling
@@ -216,12 +169,26 @@ namespace ShantiEnterprises.API.Services
                 await _repository.DeleteAsync(id);
 
             // -----------------------------------------
-            // Delete Physical File
+            // Delete Image From Cloudinary
             // -----------------------------------------
 
             if (result)
             {
-                DeletePhysicalFile(image.ImageUrl);
+                var publicId =
+                    ExtractCloudinaryPublicId(image.ImageUrl);
+
+                if (!string.IsNullOrWhiteSpace(publicId))
+                {
+                    try
+                    {
+                        await _cloudinaryService
+                            .DeleteImageAsync(publicId);
+                    }
+                    catch
+                    {
+                        // Ignore Cloudinary deletion errors.
+                    }
+                }
             }
 
             return result;
@@ -251,43 +218,78 @@ namespace ShantiEnterprises.API.Services
         }
 
         // -----------------------------------------
-        // Delete Physical Image
+        // Extract Cloudinary Public ID
         // -----------------------------------------
 
-        private void DeletePhysicalFile(string imageUrl)
+        private static string? ExtractCloudinaryPublicId(
+            string? imageUrl)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(imageUrl))
                 {
-                    return;
+                    return null;
                 }
 
-                var uri =
-                    new Uri(imageUrl);
+                var uri = new Uri(imageUrl);
 
-                var relativePath =
-                    uri.AbsolutePath
-                        .TrimStart('/')
-                        .Replace(
-                            '/',
-                            Path.DirectorySeparatorChar
-                        );
+                var path = uri.AbsolutePath;
 
-                var filePath =
-                    Path.Combine(
-                        _environment.WebRootPath,
-                        relativePath
+                var uploadIndex =
+                    path.IndexOf(
+                        "/upload/",
+                        StringComparison.OrdinalIgnoreCase);
+
+                if (uploadIndex < 0)
+                {
+                    return null;
+                }
+
+                var publicPath =
+                    path.Substring(
+                        uploadIndex + "/upload/".Length
                     );
 
-                if (File.Exists(filePath))
+                var parts =
+                    publicPath.Split(
+                        '/',
+                        StringSplitOptions.RemoveEmptyEntries
+                    );
+
+                // Remove Cloudinary version:
+                // v123456789/
+                if (parts.Length > 1 &&
+                    parts[0].StartsWith("v") &&
+                    long.TryParse(
+                        parts[0].Substring(1),
+                        out _))
                 {
-                    File.Delete(filePath);
+                    publicPath =
+                        string.Join(
+                            "/",
+                            parts.Skip(1)
+                        );
                 }
+
+                // Remove file extension
+                var extension =
+                    Path.GetExtension(publicPath);
+
+                if (!string.IsNullOrEmpty(extension))
+                {
+                    publicPath =
+                        publicPath.Substring(
+                            0,
+                            publicPath.Length -
+                            extension.Length
+                        );
+                }
+
+                return publicPath.Trim('/');
             }
             catch
             {
-                // Ignore physical file deletion errors.
+                return null;
             }
         }
     }

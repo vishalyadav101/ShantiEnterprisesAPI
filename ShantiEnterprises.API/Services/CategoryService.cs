@@ -7,16 +7,25 @@ namespace ShantiEnterprises.API.Services
     public class CategoryService : ICategoryService
     {
         private readonly ICategoryRepository _repository;
-        private readonly IWebHostEnvironment _environment;
+        private readonly ICloudinaryService _cloudinaryService;
+
+        private readonly string[] _allowedExtensions =
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp"
+        };
+
+        private const long MaxFileSize = 5 * 1024 * 1024;
 
         public CategoryService(
             ICategoryRepository repository,
-            IWebHostEnvironment environment)
+            ICloudinaryService cloudinaryService)
         {
             _repository = repository;
-            _environment = environment;
+            _cloudinaryService = cloudinaryService;
         }
-
 
         // =========================================================
         // GET ALL
@@ -24,13 +33,13 @@ namespace ShantiEnterprises.API.Services
 
         public async Task<List<CategoryResponseDto>> GetAllAsync()
         {
-            var categories = await _repository.GetAllAsync();
+            var categories =
+                await _repository.GetAllAsync();
 
             return categories
                 .Select(MapToDto)
                 .ToList();
         }
-
 
         // =========================================================
         // GET BY ID
@@ -38,7 +47,8 @@ namespace ShantiEnterprises.API.Services
 
         public async Task<CategoryResponseDto?> GetByIdAsync(int id)
         {
-            var category = await _repository.GetByIdAsync(id);
+            var category =
+                await _repository.GetByIdAsync(id);
 
             if (category == null)
             {
@@ -47,7 +57,6 @@ namespace ShantiEnterprises.API.Services
 
             return MapToDto(category);
         }
-
 
         // =========================================================
         // CREATE
@@ -58,7 +67,6 @@ namespace ShantiEnterprises.API.Services
         {
             var categoryName =
                 dto.CategoryName.Trim();
-
 
             // =====================================================
             // DUPLICATE CATEGORY CHECK
@@ -73,7 +81,6 @@ namespace ShantiEnterprises.API.Services
                     "Category with this name already exists.");
             }
 
-
             // =====================================================
             // IMAGE UPLOAD
             // =====================================================
@@ -82,10 +89,15 @@ namespace ShantiEnterprises.API.Services
 
             if (dto.ImageFile != null)
             {
-                imageUrl =
-                    await SaveImageAsync(dto.ImageFile);
-            }
+                ValidateImage(dto.ImageFile);
 
+                var uploadResult =
+                    await _cloudinaryService.UploadImageAsync(
+                        dto.ImageFile,
+                        "shanti-enterprises/categories");
+
+                imageUrl = uploadResult.Url;
+            }
 
             // =====================================================
             // CREATE CATEGORY
@@ -106,14 +118,11 @@ namespace ShantiEnterprises.API.Services
                 CreatedDate = DateTime.UtcNow
             };
 
-
             var createdCategory =
                 await _repository.AddAsync(category);
 
-
             return MapToDto(createdCategory);
         }
-
 
         // =========================================================
         // UPDATE
@@ -131,18 +140,15 @@ namespace ShantiEnterprises.API.Services
                 return null;
             }
 
-
             var categoryName =
                 dto.CategoryName.Trim();
-
 
             // =====================================================
             // DUPLICATE CATEGORY CHECK
             // =====================================================
 
             var duplicateCategory =
-                await _repository.GetByNameAsync(
-                    categoryName);
+                await _repository.GetByNameAsync(categoryName);
 
             if (
                 duplicateCategory != null &&
@@ -152,7 +158,6 @@ namespace ShantiEnterprises.API.Services
                 throw new Exception(
                     "Another category with this name already exists.");
             }
-
 
             // =====================================================
             // UPDATE BASIC DETAILS
@@ -168,30 +173,42 @@ namespace ShantiEnterprises.API.Services
             existingCategory.IsActive =
                 dto.IsActive;
 
-
             // =====================================================
             // IMAGE UPDATE
             // =====================================================
 
             if (dto.ImageFile != null)
             {
+                ValidateImage(dto.ImageFile);
+
                 var oldImageUrl =
                     existingCategory.ImageUrl;
 
-
-                var newImageUrl =
-                    await SaveImageAsync(
-                        dto.ImageFile);
-
+                var uploadResult =
+                    await _cloudinaryService.UploadImageAsync(
+                        dto.ImageFile,
+                        "shanti-enterprises/categories");
 
                 existingCategory.ImageUrl =
-                    newImageUrl;
+                    uploadResult.Url;
 
+                // Delete old Cloudinary image
+                var oldPublicId =
+                    ExtractCloudinaryPublicId(oldImageUrl);
 
-                // Delete old uploaded category image
-                DeleteImage(oldImageUrl);
+                if (!string.IsNullOrWhiteSpace(oldPublicId))
+                {
+                    try
+                    {
+                        await _cloudinaryService
+                            .DeleteImageAsync(oldPublicId);
+                    }
+                    catch
+                    {
+                        // Ignore Cloudinary cleanup errors.
+                    }
+                }
             }
-
 
             // =====================================================
             // SAVE UPDATE
@@ -206,10 +223,8 @@ namespace ShantiEnterprises.API.Services
                 return null;
             }
 
-
             return MapToDto(updatedCategory);
         }
-
 
         // =========================================================
         // DELETE
@@ -225,46 +240,50 @@ namespace ShantiEnterprises.API.Services
                 return false;
             }
 
-
             var imageUrl =
                 category.ImageUrl;
-
 
             var deleted =
                 await _repository.DeleteAsync(id);
 
-
             if (deleted)
             {
-                DeleteImage(imageUrl);
-            }
+                var publicId =
+                    ExtractCloudinaryPublicId(imageUrl);
 
+                if (!string.IsNullOrWhiteSpace(publicId))
+                {
+                    try
+                    {
+                        await _cloudinaryService
+                            .DeleteImageAsync(publicId);
+                    }
+                    catch
+                    {
+                        // Ignore Cloudinary cleanup errors.
+                    }
+                }
+            }
 
             return deleted;
         }
 
-
         // =========================================================
-        // SAVE IMAGE
+        // VALIDATE IMAGE
         // =========================================================
 
-        private async Task<string> SaveImageAsync(
+        private void ValidateImage(
             IFormFile imageFile)
         {
             // -----------------------------------------------------
             // MAXIMUM FILE SIZE = 5 MB
             // -----------------------------------------------------
 
-            const long maxFileSize =
-                5 * 1024 * 1024;
-
-
-            if (imageFile.Length > maxFileSize)
+            if (imageFile.Length > MaxFileSize)
             {
                 throw new Exception(
                     "Category image size must be less than 5 MB.");
             }
-
 
             // -----------------------------------------------------
             // FILE EXTENSION
@@ -275,133 +294,88 @@ namespace ShantiEnterprises.API.Services
                     imageFile.FileName)
                 .ToLowerInvariant();
 
-
-            var allowedExtensions =
-                new[]
-                {
-                    ".jpg",
-                    ".jpeg",
-                    ".png",
-                    ".webp"
-                };
-
-
-            if (!allowedExtensions.Contains(
-                    extension))
+            if (!_allowedExtensions.Contains(extension))
             {
                 throw new Exception(
                     "Only JPG, JPEG, PNG and WEBP images are allowed.");
             }
-
-
-            // -----------------------------------------------------
-            // UPLOAD FOLDER
-            // -----------------------------------------------------
-
-            var uploadsFolder =
-                Path.Combine(
-                    _environment.WebRootPath,
-                    "uploads",
-                    "categories");
-
-
-            if (!Directory.Exists(
-                    uploadsFolder))
-            {
-                Directory.CreateDirectory(
-                    uploadsFolder);
-            }
-
-
-            // -----------------------------------------------------
-            // UNIQUE FILE NAME
-            // -----------------------------------------------------
-
-            var fileName =
-                $"{Guid.NewGuid()}{extension}";
-
-
-            var filePath =
-                Path.Combine(
-                    uploadsFolder,
-                    fileName);
-
-
-            // -----------------------------------------------------
-            // SAVE IMAGE
-            // -----------------------------------------------------
-
-            await using var stream =
-                new FileStream(
-                    filePath,
-                    FileMode.Create);
-
-
-            await imageFile.CopyToAsync(
-                stream);
-
-
-            // -----------------------------------------------------
-            // DATABASE URL
-            // -----------------------------------------------------
-
-            return
-                $"/uploads/categories/{fileName}";
         }
 
-
         // =========================================================
-        // DELETE IMAGE FILE
+        // EXTRACT CLOUDINARY PUBLIC ID
         // =========================================================
 
-        private void DeleteImage(
+        private static string? ExtractCloudinaryPublicId(
             string? imageUrl)
         {
-            if (string.IsNullOrWhiteSpace(
-                    imageUrl))
+            try
             {
-                return;
+                if (string.IsNullOrWhiteSpace(imageUrl))
+                {
+                    return null;
+                }
+
+                var uri =
+                    new Uri(imageUrl);
+
+                var path =
+                    uri.AbsolutePath;
+
+                var uploadIndex =
+                    path.IndexOf(
+                        "/upload/",
+                        StringComparison.OrdinalIgnoreCase);
+
+                if (uploadIndex < 0)
+                {
+                    return null;
+                }
+
+                var publicPath =
+                    path.Substring(
+                        uploadIndex + "/upload/".Length);
+
+                var parts =
+                    publicPath.Split(
+                        '/',
+                        StringSplitOptions.RemoveEmptyEntries);
+
+                // Remove Cloudinary version:
+                // v123456789/
+                if (
+                    parts.Length > 1 &&
+                    parts[0].StartsWith("v") &&
+                    long.TryParse(
+                        parts[0].Substring(1),
+                        out _)
+                )
+                {
+                    publicPath =
+                        string.Join(
+                            "/",
+                            parts.Skip(1));
+                }
+
+                // Remove file extension
+                var extension =
+                    Path.GetExtension(publicPath);
+
+                if (!string.IsNullOrEmpty(extension))
+                {
+                    publicPath =
+                        publicPath.Substring(
+                            0,
+                            publicPath.Length -
+                            extension.Length);
+                }
+
+                return publicPath.Trim('/');
             }
-
-
-            // -----------------------------------------------------
-            // Only delete our category uploads
-            // -----------------------------------------------------
-
-            if (!imageUrl.StartsWith(
-                    "/uploads/categories/",
-                    StringComparison.OrdinalIgnoreCase))
+            catch
             {
-                return;
-            }
-
-
-            var fileName =
-                Path.GetFileName(
-                    imageUrl);
-
-
-            if (string.IsNullOrWhiteSpace(
-                    fileName))
-            {
-                return;
-            }
-
-
-            var filePath =
-                Path.Combine(
-                    _environment.WebRootPath,
-                    "uploads",
-                    "categories",
-                    fileName);
-
-
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
+                return null;
             }
         }
-
 
         // =========================================================
         // ENTITY → DTO

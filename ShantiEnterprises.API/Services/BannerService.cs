@@ -7,8 +7,7 @@ namespace ShantiEnterprises.API.Services
     public class BannerService : IBannerService
     {
         private readonly IBannerRepository _repository;
-        private readonly IWebHostEnvironment _environment;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICloudinaryService _cloudinaryService;
 
         // =========================
         // IMAGE SETTINGS
@@ -26,12 +25,10 @@ namespace ShantiEnterprises.API.Services
 
         public BannerService(
             IBannerRepository repository,
-            IWebHostEnvironment environment,
-            IHttpContextAccessor httpContextAccessor)
+            ICloudinaryService cloudinaryService)
         {
             _repository = repository;
-            _environment = environment;
-            _httpContextAccessor = httpContextAccessor;
+            _cloudinaryService = cloudinaryService;
         }
 
         // =========================
@@ -82,11 +79,22 @@ namespace ShantiEnterprises.API.Services
             ValidateCreate(dto);
 
             // -----------------------------------------
-            // UPLOAD IMAGE
+            // VALIDATE IMAGE
             // -----------------------------------------
 
+            ValidateImage(dto.Image);
+
+            // -----------------------------------------
+            // UPLOAD IMAGE TO CLOUDINARY
+            // -----------------------------------------
+
+            var uploadResult =
+                await _cloudinaryService.UploadImageAsync(
+                    dto.Image,
+                    "shanti-enterprises/banners");
+
             var imageUrl =
-                await UploadImageAsync(dto.Image);
+                uploadResult.Url;
 
             // -----------------------------------------
             // CREATE BANNER
@@ -98,7 +106,8 @@ namespace ShantiEnterprises.API.Services
                     dto.Title.Trim(),
 
                 Subtitle =
-                    dto.Subtitle?.Trim() ?? string.Empty,
+                    dto.Subtitle?.Trim()
+                    ?? string.Empty,
 
                 ImageUrl =
                     imageUrl,
@@ -140,8 +149,23 @@ namespace ShantiEnterprises.API.Services
             catch
             {
                 // If database save fails,
-                // remove uploaded physical image.
-                DeletePhysicalFile(imageUrl);
+                // remove uploaded Cloudinary image.
+
+                var publicId =
+                    uploadResult.PublicId;
+
+                if (!string.IsNullOrWhiteSpace(publicId))
+                {
+                    try
+                    {
+                        await _cloudinaryService
+                            .DeleteImageAsync(publicId);
+                    }
+                    catch
+                    {
+                        // Ignore cleanup errors.
+                    }
+                }
 
                 throw;
             }
@@ -185,6 +209,8 @@ namespace ShantiEnterprises.API.Services
             var newImageUrl =
                 oldImageUrl;
 
+            string? newPublicId = null;
+
             // -----------------------------------------
             // UPLOAD NEW IMAGE IF SELECTED
             // -----------------------------------------
@@ -192,9 +218,18 @@ namespace ShantiEnterprises.API.Services
             if (dto.Image != null &&
                 dto.Image.Length > 0)
             {
+                ValidateImage(dto.Image);
+
+                var uploadResult =
+                    await _cloudinaryService.UploadImageAsync(
+                        dto.Image,
+                        "shanti-enterprises/banners");
+
                 newImageUrl =
-                    await UploadImageAsync(
-                        dto.Image);
+                    uploadResult.Url;
+
+                newPublicId =
+                    uploadResult.PublicId;
             }
 
             // -----------------------------------------
@@ -205,7 +240,8 @@ namespace ShantiEnterprises.API.Services
                 dto.Title.Trim();
 
             banner.Subtitle =
-                dto.Subtitle?.Trim() ?? string.Empty;
+                dto.Subtitle?.Trim()
+                ?? string.Empty;
 
             banner.ImageUrl =
                 newImageUrl;
@@ -244,8 +280,24 @@ namespace ShantiEnterprises.API.Services
 
                 if (newImageUrl != oldImageUrl)
                 {
-                    DeletePhysicalFile(
-                        oldImageUrl);
+                    var oldPublicId =
+                        ExtractCloudinaryPublicId(
+                            oldImageUrl);
+
+                    if (!string.IsNullOrWhiteSpace(
+                            oldPublicId))
+                    {
+                        try
+                        {
+                            await _cloudinaryService
+                                .DeleteImageAsync(
+                                    oldPublicId);
+                        }
+                        catch
+                        {
+                            // Ignore cleanup errors.
+                        }
+                    }
                 }
 
                 return Map(banner);
@@ -254,11 +306,21 @@ namespace ShantiEnterprises.API.Services
             {
                 // If new image was uploaded but
                 // database update failed,
-                // remove the new image.
-                if (newImageUrl != oldImageUrl)
+                // remove the new Cloudinary image.
+
+                if (!string.IsNullOrWhiteSpace(
+                        newPublicId))
                 {
-                    DeletePhysicalFile(
-                        newImageUrl);
+                    try
+                    {
+                        await _cloudinaryService
+                            .DeleteImageAsync(
+                                newPublicId);
+                    }
+                    catch
+                    {
+                        // Ignore cleanup errors.
+                    }
                 }
 
                 throw;
@@ -285,6 +347,13 @@ namespace ShantiEnterprises.API.Services
             }
 
             // -----------------------------------------
+            // SAVE IMAGE URL BEFORE DELETE
+            // -----------------------------------------
+
+            var imageUrl =
+                banner.ImageUrl;
+
+            // -----------------------------------------
             // DELETE DATABASE RECORD
             // -----------------------------------------
 
@@ -292,13 +361,29 @@ namespace ShantiEnterprises.API.Services
                 await _repository.DeleteAsync(id);
 
             // -----------------------------------------
-            // DELETE PHYSICAL IMAGE
+            // DELETE CLOUDINARY IMAGE
             // -----------------------------------------
 
             if (result)
             {
-                DeletePhysicalFile(
-                    banner.ImageUrl);
+                var publicId =
+                    ExtractCloudinaryPublicId(
+                        imageUrl);
+
+                if (!string.IsNullOrWhiteSpace(
+                        publicId))
+                {
+                    try
+                    {
+                        await _cloudinaryService
+                            .DeleteImageAsync(
+                                publicId);
+                    }
+                    catch
+                    {
+                        // Ignore Cloudinary cleanup errors.
+                    }
+                }
             }
 
             return result;
@@ -354,12 +439,11 @@ namespace ShantiEnterprises.API.Services
         }
 
         // =========================
-        // IMAGE UPLOAD
+        // IMAGE VALIDATION
         // =========================
 
-        private async Task<string>
-            UploadImageAsync(
-                IFormFile image)
+        private void ValidateImage(
+            IFormFile image)
         {
             // -----------------------------------------
             // NULL / EMPTY CHECK
@@ -397,72 +481,6 @@ namespace ShantiEnterprises.API.Services
                 throw new Exception(
                     "Only JPG, JPEG, PNG and WEBP images are allowed.");
             }
-
-            // -----------------------------------------
-            // UPLOAD FOLDER
-            // -----------------------------------------
-
-            var uploadsFolder =
-                Path.Combine(
-                    _environment.WebRootPath,
-                    "uploads",
-                    "banners");
-
-            if (!Directory.Exists(
-                    uploadsFolder))
-            {
-                Directory.CreateDirectory(
-                    uploadsFolder);
-            }
-
-            // -----------------------------------------
-            // UNIQUE FILE NAME
-            // -----------------------------------------
-
-            var fileName =
-                $"{Guid.NewGuid()}{extension}";
-
-            var filePath =
-                Path.Combine(
-                    uploadsFolder,
-                    fileName);
-
-            // -----------------------------------------
-            // SAVE PHYSICAL FILE
-            // -----------------------------------------
-
-            await using (
-                var stream =
-                    new FileStream(
-                        filePath,
-                        FileMode.Create))
-            {
-                await image.CopyToAsync(
-                    stream);
-            }
-
-            // -----------------------------------------
-            // CREATE URL
-            // -----------------------------------------
-
-            var request =
-                _httpContextAccessor
-                    .HttpContext?
-                    .Request;
-
-            if (request == null)
-            {
-                // Remove file if URL cannot be created.
-                DeleteFileByPath(filePath);
-
-                throw new Exception(
-                    "Unable to create image URL.");
-            }
-
-            var imageUrl =
-                $"{request.Scheme}://{request.Host}/uploads/banners/{fileName}";
-
-            return imageUrl;
         }
 
         // =========================
@@ -504,10 +522,10 @@ namespace ShantiEnterprises.API.Services
         }
 
         // =========================
-        // DELETE PHYSICAL IMAGE
+        // EXTRACT CLOUDINARY PUBLIC ID
         // =========================
 
-        private void DeletePhysicalFile(
+        private static string? ExtractCloudinaryPublicId(
             string? imageUrl)
         {
             try
@@ -515,76 +533,73 @@ namespace ShantiEnterprises.API.Services
                 if (string.IsNullOrWhiteSpace(
                         imageUrl))
                 {
-                    return;
+                    return null;
                 }
-
-                // -------------------------------------
-                // Only process our own uploaded images
-                // -------------------------------------
 
                 var uri =
                     new Uri(imageUrl);
 
-                var relativePath =
-                    uri.AbsolutePath
-                        .TrimStart('/')
-                        .Replace(
-                            '/',
-                            Path.DirectorySeparatorChar);
+                var path =
+                    uri.AbsolutePath;
 
-                // Security: only delete files
-                // inside wwwroot.
-                var filePath =
-                    Path.Combine(
-                        _environment.WebRootPath,
-                        relativePath);
+                var uploadIndex =
+                    path.IndexOf(
+                        "/upload/",
+                        StringComparison.OrdinalIgnoreCase);
 
-                var fullWebRootPath =
-                    Path.GetFullPath(
-                        _environment.WebRootPath);
-
-                var fullFilePath =
-                    Path.GetFullPath(
-                        filePath);
-
-                if (!fullFilePath.StartsWith(
-                        fullWebRootPath,
-                        StringComparison
-                            .OrdinalIgnoreCase))
+                if (uploadIndex < 0)
                 {
-                    return;
+                    return null;
                 }
 
-                if (File.Exists(
-                        fullFilePath))
+                var publicPath =
+                    path.Substring(
+                        uploadIndex +
+                        "/upload/".Length);
+
+                var parts =
+                    publicPath.Split(
+                        '/',
+                        StringSplitOptions.RemoveEmptyEntries);
+
+                // Remove Cloudinary version:
+                // v123456789/
+
+                if (
+                    parts.Length > 1 &&
+                    parts[0].StartsWith("v") &&
+                    long.TryParse(
+                        parts[0].Substring(1),
+                        out _)
+                )
                 {
-                    File.Delete(
-                        fullFilePath);
+                    publicPath =
+                        string.Join(
+                            "/",
+                            parts.Skip(1));
                 }
+
+                // Remove file extension
+
+                var extension =
+                    Path.GetExtension(
+                        publicPath);
+
+                if (!string.IsNullOrEmpty(
+                        extension))
+                {
+                    publicPath =
+                        publicPath.Substring(
+                            0,
+                            publicPath.Length -
+                            extension.Length);
+                }
+
+                return publicPath.Trim('/');
             }
             catch
             {
-                // Ignore physical file deletion errors.
-            }
-        }
-
-        // =========================
-        // DELETE FILE BY PATH
-        // =========================
-
-        private static void DeleteFileByPath(
-            string filePath)
-        {
-            try
-            {
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
-            }
-            catch
-            {
-                // Ignore file deletion errors.
+                return null;
             }
         }
     }

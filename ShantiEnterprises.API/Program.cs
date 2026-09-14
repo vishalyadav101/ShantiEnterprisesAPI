@@ -70,6 +70,8 @@ builder.Services.AddScoped<IProductPriceTierService, ProductPriceTierService>();
 builder.Services.AddScoped<IProductImageRepository, ProductImageRepository>();
 builder.Services.AddScoped<IProductImageService, ProductImageService>();
 
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+
 
 // =========================
 // HTTP CONTEXT

@@ -485,3 +485,13 @@ $RECYCLE.BIN/
 
 # Cloudinary uploaded images
 wwwroot/uploads/
+
+# Local uploaded images
+wwwroot/uploads/
+wwwroot/images/settings/
+.config/
+
+# Ignore nested local uploads
+/ShantiEnterprises.API/wwwroot/uploads/
+/ShantiEnterprises.API/wwwroot/images/settings/
+/ShantiEnterprises.API/.config/

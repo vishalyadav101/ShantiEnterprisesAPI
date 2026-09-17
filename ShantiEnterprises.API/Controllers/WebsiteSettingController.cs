@@ -20,7 +20,7 @@ namespace ShantiEnterprises.API.Controllers
         // =========================
         // GET SETTINGS
         // =========================
-
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> Get()
         {

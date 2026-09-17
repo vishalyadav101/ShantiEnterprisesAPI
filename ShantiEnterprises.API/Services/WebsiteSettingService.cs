@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using Microsoft.AspNetCore.Http;
 using ShantiEnterprises.API.DTOs.WebsiteSetting;
 using ShantiEnterprises.API.Interfaces;
 using ShantiEnterprises.API.Models;
@@ -9,20 +9,34 @@ namespace ShantiEnterprises.API.Services
         : IWebsiteSettingService
     {
         private readonly IWebsiteSettingRepository _repository;
-        private readonly IWebHostEnvironment _environment;
+        private readonly ICloudinaryService _cloudinaryService;
+
+        private readonly string[] _allowedImageExtensions =
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".ico"
+        };
+
+        private const long MaxFileSize = 5 * 1024 * 1024;
 
         public WebsiteSettingService(
             IWebsiteSettingRepository repository,
-            IWebHostEnvironment environment)
+            ICloudinaryService cloudinaryService)
         {
             _repository = repository;
-            _environment = environment;
+            _cloudinaryService = cloudinaryService;
         }
+
+        // =========================
+        // GET SETTINGS
+        // =========================
 
         public async Task<WebsiteSettingResponseDto?> GetAsync()
         {
-            var setting =
-                await _repository.GetAsync();
+            var setting = await _repository.GetAsync();
 
             if (setting == null)
             {
@@ -32,12 +46,14 @@ namespace ShantiEnterprises.API.Services
             return Map(setting);
         }
 
-        public async Task<WebsiteSettingResponseDto>
-            SaveAsync(
-                WebsiteSettingCreateUpdateDto dto)
+        // =========================
+        // CREATE / UPDATE SETTINGS
+        // =========================
+
+        public async Task<WebsiteSettingResponseDto> SaveAsync(
+            WebsiteSettingCreateUpdateDto dto)
         {
-            var setting =
-                await _repository.GetAsync();
+            var setting = await _repository.GetAsync();
 
             // =========================
             // CREATE
@@ -47,62 +63,54 @@ namespace ShantiEnterprises.API.Services
             {
                 setting = new WebsiteSetting
                 {
-                    CompanyName =
-                        dto.CompanyName,
-
-                    Email =
-                        dto.Email,
-
-                    Phone =
-                        dto.Phone,
-
-                    WhatsAppNumber =
-                        dto.WhatsAppNumber,
-
-                    Address =
-                        dto.Address,
-
-                    FacebookUrl =
-                        dto.FacebookUrl,
-
-                    InstagramUrl =
-                        dto.InstagramUrl,
-
-                    TwitterUrl =
-                        dto.TwitterUrl,
-
-                    LinkedInUrl =
-                        dto.LinkedInUrl,
-
-                    YouTubeUrl =
-                        dto.YouTubeUrl,
-
-                    FooterText =
-                        dto.FooterText,
-
-                    UpdatedDate =
-                        DateTime.UtcNow
+                    CompanyName = dto.CompanyName,
+                    Email = dto.Email,
+                    Phone = dto.Phone,
+                    WhatsAppNumber = dto.WhatsAppNumber,
+                    Address = dto.Address,
+                    FacebookUrl = dto.FacebookUrl,
+                    InstagramUrl = dto.InstagramUrl,
+                    TwitterUrl = dto.TwitterUrl,
+                    LinkedInUrl = dto.LinkedInUrl,
+                    YouTubeUrl = dto.YouTubeUrl,
+                    FooterText = dto.FooterText,
+                    UpdatedDate = DateTime.UtcNow
                 };
+
+                // -------------------------
+                // Upload Logo
+                // -------------------------
 
                 if (dto.Logo != null)
                 {
-                    setting.LogoUrl =
-                        await SaveImageAsync(
+                    ValidateImage(dto.Logo);
+
+                    var logoResult =
+                        await _cloudinaryService.UploadImageAsync(
                             dto.Logo,
-                            "logo");
+                            "shanti-enterprises/settings/logo");
+
+                    setting.LogoUrl = logoResult.Url;
                 }
+
+                // -------------------------
+                // Upload Favicon
+                // -------------------------
 
                 if (dto.Favicon != null)
                 {
-                    setting.FaviconUrl =
-                        await SaveImageAsync(
+                    ValidateImage(dto.Favicon);
+
+                    var faviconResult =
+                        await _cloudinaryService.UploadImageAsync(
                             dto.Favicon,
-                            "favicon");
+                            "shanti-enterprises/settings/favicon");
+
+                    setting.FaviconUrl = faviconResult.Url;
                 }
 
                 var created =
-                    await _repository.CreateAsync(
-                        setting);
+                    await _repository.CreateAsync(setting);
 
                 return Map(created);
             }
@@ -111,140 +119,212 @@ namespace ShantiEnterprises.API.Services
             // UPDATE
             // =========================
 
-            setting.CompanyName =
-                dto.CompanyName;
+            setting.CompanyName = dto.CompanyName;
+            setting.Email = dto.Email;
+            setting.Phone = dto.Phone;
+            setting.WhatsAppNumber = dto.WhatsAppNumber;
+            setting.Address = dto.Address;
+            setting.FacebookUrl = dto.FacebookUrl;
+            setting.InstagramUrl = dto.InstagramUrl;
+            setting.TwitterUrl = dto.TwitterUrl;
+            setting.LinkedInUrl = dto.LinkedInUrl;
+            setting.YouTubeUrl = dto.YouTubeUrl;
+            setting.FooterText = dto.FooterText;
 
-            setting.Email =
-                dto.Email;
+            // -------------------------
+            // Replace Logo
+            // -------------------------
 
-            setting.Phone =
-                dto.Phone;
-
-            setting.WhatsAppNumber =
-                dto.WhatsAppNumber;
-
-            setting.Address =
-                dto.Address;
-
-            setting.FacebookUrl =
-                dto.FacebookUrl;
-
-            setting.InstagramUrl =
-                dto.InstagramUrl;
-
-            setting.TwitterUrl =
-                dto.TwitterUrl;
-
-            setting.LinkedInUrl =
-                dto.LinkedInUrl;
-
-            setting.YouTubeUrl =
-                dto.YouTubeUrl;
-
-            setting.FooterText =
-                dto.FooterText;
-
-            // Replace logo only if new image uploaded
             if (dto.Logo != null)
             {
-                DeleteImage(setting.LogoUrl);
+                ValidateImage(dto.Logo);
 
-                setting.LogoUrl =
-                    await SaveImageAsync(
+                var oldLogoUrl = setting.LogoUrl;
+
+                var logoResult =
+                    await _cloudinaryService.UploadImageAsync(
                         dto.Logo,
-                        "logo");
+                        "shanti-enterprises/settings/logo");
+
+                setting.LogoUrl = logoResult.Url;
+
+                // Delete old Cloudinary image
+                if (!string.IsNullOrWhiteSpace(oldLogoUrl))
+                {
+                    var oldPublicId =
+                        ExtractCloudinaryPublicId(oldLogoUrl);
+
+                    if (!string.IsNullOrWhiteSpace(oldPublicId))
+                    {
+                        try
+                        {
+                            await _cloudinaryService.DeleteImageAsync(
+                                oldPublicId);
+                        }
+                        catch
+                        {
+                            // Do not fail settings update
+                            // if old image deletion fails.
+                        }
+                    }
+                }
             }
 
-            // Replace favicon only if new image uploaded
+            // -------------------------
+            // Replace Favicon
+            // -------------------------
+
             if (dto.Favicon != null)
             {
-                DeleteImage(setting.FaviconUrl);
+                ValidateImage(dto.Favicon);
 
-                setting.FaviconUrl =
-                    await SaveImageAsync(
+                var oldFaviconUrl = setting.FaviconUrl;
+
+                var faviconResult =
+                    await _cloudinaryService.UploadImageAsync(
                         dto.Favicon,
-                        "favicon");
+                        "shanti-enterprises/settings/favicon");
+
+                setting.FaviconUrl = faviconResult.Url;
+
+                // Delete old Cloudinary image
+                if (!string.IsNullOrWhiteSpace(oldFaviconUrl))
+                {
+                    var oldPublicId =
+                        ExtractCloudinaryPublicId(oldFaviconUrl);
+
+                    if (!string.IsNullOrWhiteSpace(oldPublicId))
+                    {
+                        try
+                        {
+                            await _cloudinaryService.DeleteImageAsync(
+                                oldPublicId);
+                        }
+                        catch
+                        {
+                            // Do not fail settings update
+                            // if old image deletion fails.
+                        }
+                    }
+                }
             }
 
-            setting.UpdatedDate =
-                DateTime.UtcNow;
+            setting.UpdatedDate = DateTime.UtcNow;
 
-            await _repository.UpdateAsync(
-                setting);
+            await _repository.UpdateAsync(setting);
 
             return Map(setting);
         }
 
         // =========================
-        // SAVE IMAGE
+        // IMAGE VALIDATION
         // =========================
 
-        private async Task<string>
-            SaveImageAsync(
-                IFormFile file,
-                string prefix)
+        private void ValidateImage(IFormFile file)
         {
-            var uploadsFolder =
-                Path.Combine(
-                    _environment.WebRootPath,
-                    "images",
-                    "settings");
-
-            if (!Directory.Exists(uploadsFolder))
+            if (file.Length == 0)
             {
-                Directory.CreateDirectory(
-                    uploadsFolder);
+                throw new ArgumentException(
+                    "Uploaded image is empty.");
+            }
+
+            if (file.Length > MaxFileSize)
+            {
+                throw new ArgumentException(
+                    "Image size must be 5 MB or less.");
             }
 
             var extension =
-                Path.GetExtension(
-                    file.FileName);
+                Path.GetExtension(file.FileName)
+                    .ToLowerInvariant();
 
-            var fileName =
-                $"{prefix}-{Guid.NewGuid():N}{extension}";
-
-            var filePath =
-                Path.Combine(
-                    uploadsFolder,
-                    fileName);
-
-            await using var stream =
-                new FileStream(
-                    filePath,
-                    FileMode.Create);
-
-            await file.CopyToAsync(stream);
-
-            return
-                $"/images/settings/{fileName}";
+            if (!_allowedImageExtensions.Contains(extension))
+            {
+                throw new ArgumentException(
+                    "Only JPG, JPEG, PNG, WEBP or ICO images are allowed.");
+            }
         }
 
         // =========================
-        // DELETE IMAGE
+        // CLOUDINARY PUBLIC ID
         // =========================
 
-        private void DeleteImage(
-            string? imageUrl)
+        private static string ExtractCloudinaryPublicId(
+            string imageUrl)
         {
-            if (string.IsNullOrWhiteSpace(imageUrl))
+            try
             {
-                return;
+                if (!Uri.TryCreate(
+                        imageUrl,
+                        UriKind.Absolute,
+                        out var uri))
+                {
+                    return string.Empty;
+                }
+
+                var path = uri.AbsolutePath;
+
+                const string uploadMarker = "/upload/";
+
+                var uploadIndex =
+                    path.IndexOf(
+                        uploadMarker,
+                        StringComparison.OrdinalIgnoreCase);
+
+                if (uploadIndex < 0)
+                {
+                    return string.Empty;
+                }
+
+                var publicPath =
+                    path.Substring(
+                        uploadIndex + uploadMarker.Length);
+
+                var segments =
+                    publicPath.Split(
+                        '/',
+                        StringSplitOptions.RemoveEmptyEntries)
+                    .ToList();
+
+                if (segments.Count == 0)
+                {
+                    return string.Empty;
+                }
+
+                // Remove Cloudinary version segment
+                // Example: v1234567890
+                if (segments[0].StartsWith("v") &&
+                    segments[0].Length > 1 &&
+                    long.TryParse(
+                        segments[0].Substring(1),
+                        out _))
+                {
+                    segments.RemoveAt(0);
+                }
+
+                if (segments.Count == 0)
+                {
+                    return string.Empty;
+                }
+
+                var fileName =
+                    segments[^1];
+
+                var extension =
+                    Path.GetExtension(fileName);
+
+                if (!string.IsNullOrWhiteSpace(extension))
+                {
+                    segments[^1] =
+                        Path.GetFileNameWithoutExtension(
+                            fileName);
+                }
+
+                return string.Join("/", segments);
             }
-
-            var relativePath =
-                imageUrl.TrimStart('/')
-                        .Replace(
-                            '/',
-                            Path.DirectorySeparatorChar);
-
-            var filePath =
-                Path.Combine(
-                    _environment.WebRootPath,
-                    relativePath);
-
-            if (File.Exists(filePath))
+            catch
             {
-                File.Delete(filePath);
+                return string.Empty;
             }
         }
 
@@ -252,8 +332,8 @@ namespace ShantiEnterprises.API.Services
         // MAP
         // =========================
 
-        private static WebsiteSettingResponseDto
-            Map(WebsiteSetting setting)
+        private static WebsiteSettingResponseDto Map(
+            WebsiteSetting setting)
         {
             return new WebsiteSettingResponseDto
             {

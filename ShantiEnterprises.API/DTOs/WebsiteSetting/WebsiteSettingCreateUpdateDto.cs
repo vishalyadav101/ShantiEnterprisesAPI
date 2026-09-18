@@ -4,8 +4,7 @@ namespace ShantiEnterprises.API.DTOs.WebsiteSetting
 {
     public class WebsiteSettingCreateUpdateDto
     {
-        public string CompanyName { get; set; }
-            = string.Empty;
+        public string CompanyName { get; set; } = string.Empty;
 
         public IFormFile? Logo { get; set; }
 
@@ -16,6 +15,14 @@ namespace ShantiEnterprises.API.DTOs.WebsiteSetting
         public string? Phone { get; set; }
 
         public string? WhatsAppNumber { get; set; }
+
+        public string? CustomerCare { get; set; }
+
+        public string? GSTIN { get; set; }
+
+        public string? Proprietor { get; set; }
+
+        public int? SinceYear { get; set; }
 
         public string? Address { get; set; }
 
@@ -28,6 +35,7 @@ namespace ShantiEnterprises.API.DTOs.WebsiteSetting
         public string? LinkedInUrl { get; set; }
 
         public string? YouTubeUrl { get; set; }
+        public string? HighlightText { get; set; }
 
         public string? FooterText { get; set; }
     }

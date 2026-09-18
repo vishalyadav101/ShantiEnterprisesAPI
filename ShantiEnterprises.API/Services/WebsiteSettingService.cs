@@ -67,13 +67,24 @@ namespace ShantiEnterprises.API.Services
                     Email = dto.Email,
                     Phone = dto.Phone,
                     WhatsAppNumber = dto.WhatsAppNumber,
+
+                    // Business details
+                    CustomerCare = dto.CustomerCare,
+                    GSTIN = dto.GSTIN,
+                    Proprietor = dto.Proprietor,
+                    SinceYear = dto.SinceYear,
+
                     Address = dto.Address,
                     FacebookUrl = dto.FacebookUrl,
                     InstagramUrl = dto.InstagramUrl,
                     TwitterUrl = dto.TwitterUrl,
                     LinkedInUrl = dto.LinkedInUrl,
                     YouTubeUrl = dto.YouTubeUrl,
+
+                    // Footer details
+                    HighlightText = dto.HighlightText,
                     FooterText = dto.FooterText,
+
                     UpdatedDate = DateTime.UtcNow
                 };
 
@@ -123,12 +134,22 @@ namespace ShantiEnterprises.API.Services
             setting.Email = dto.Email;
             setting.Phone = dto.Phone;
             setting.WhatsAppNumber = dto.WhatsAppNumber;
+
+            // Business details
+            setting.CustomerCare = dto.CustomerCare;
+            setting.GSTIN = dto.GSTIN;
+            setting.Proprietor = dto.Proprietor;
+            setting.SinceYear = dto.SinceYear;
+
             setting.Address = dto.Address;
             setting.FacebookUrl = dto.FacebookUrl;
             setting.InstagramUrl = dto.InstagramUrl;
             setting.TwitterUrl = dto.TwitterUrl;
             setting.LinkedInUrl = dto.LinkedInUrl;
             setting.YouTubeUrl = dto.YouTubeUrl;
+
+            // Footer details
+            setting.HighlightText = dto.HighlightText;
             setting.FooterText = dto.FooterText;
 
             // -------------------------
@@ -255,9 +276,9 @@ namespace ShantiEnterprises.API.Services
             try
             {
                 if (!Uri.TryCreate(
-                        imageUrl,
-                        UriKind.Absolute,
-                        out var uri))
+                    imageUrl,
+                    UriKind.Absolute,
+                    out var uri))
                 {
                     return string.Empty;
                 }
@@ -358,6 +379,19 @@ namespace ShantiEnterprises.API.Services
                 WhatsAppNumber =
                     setting.WhatsAppNumber,
 
+                // Business details
+                CustomerCare =
+                    setting.CustomerCare,
+
+                GSTIN =
+                    setting.GSTIN,
+
+                Proprietor =
+                    setting.Proprietor,
+
+                SinceYear =
+                    setting.SinceYear,
+
                 Address =
                     setting.Address,
 
@@ -375,6 +409,10 @@ namespace ShantiEnterprises.API.Services
 
                 YouTubeUrl =
                     setting.YouTubeUrl,
+
+                // Footer details
+                HighlightText =
+                    setting.HighlightText,
 
                 FooterText =
                     setting.FooterText,

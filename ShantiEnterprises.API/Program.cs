@@ -274,19 +274,38 @@ builder.Services.AddControllers();
 // CORS
 // =========================
 
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AngularPolicy", policy =>
     {
         policy
-            .WithOrigins(
-                "http://localhost:4200",
-                "https://shanti-enterprises-ui-qf9v.vercel.app"
-            )
+            .SetIsOriginAllowed(origin =>
+            {
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return false;
+                }
+
+                string host = uri.Host;
+
+                return
+                    (host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                     && uri.Port == 4200)
+                    ||
+                    host.Equals(
+                        "shanti-enterprises-ui-qf9v.vercel.app",
+                        StringComparison.OrdinalIgnoreCase)
+                    ||
+                    host.EndsWith(
+                        "-vishal-projects6.vercel.app",
+                        StringComparison.OrdinalIgnoreCase);
+            })
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
+
 
 
 // =========================

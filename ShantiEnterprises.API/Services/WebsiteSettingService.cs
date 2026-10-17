@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
 using ShantiEnterprises.API.DTOs.WebsiteSetting;
 using ShantiEnterprises.API.Interfaces;
 using ShantiEnterprises.API.Models;
@@ -21,6 +22,9 @@ namespace ShantiEnterprises.API.Services
         };
 
         private const long MaxFileSize = 5 * 1024 * 1024;
+
+        private static readonly Regex HexColorRegex =
+            new("^#[0-9A-Fa-f]{6}$", RegexOptions.Compiled);
 
         public WebsiteSettingService(
             IWebsiteSettingRepository repository,
@@ -88,6 +92,9 @@ namespace ShantiEnterprises.API.Services
                     UpdatedDate = DateTime.UtcNow
                 };
 
+                // Navbar theme colors
+                ApplyNavbarColors(setting, dto);
+
                 // -------------------------
                 // Upload Logo
                 // -------------------------
@@ -129,6 +136,9 @@ namespace ShantiEnterprises.API.Services
             // =========================
             // UPDATE
             // =========================
+
+            // Navbar colors pehle validate karo, taaki galat color par kuch save na ho
+            ApplyNavbarColors(setting, dto);
 
             setting.CompanyName = dto.CompanyName;
             setting.Email = dto.Email;
@@ -235,6 +245,72 @@ namespace ShantiEnterprises.API.Services
             await _repository.UpdateAsync(setting);
 
             return Map(setting);
+        }
+
+        // =========================
+        // NAVBAR COLORS
+        // =========================
+
+        private static void ApplyNavbarColors(
+            WebsiteSetting setting,
+            WebsiteSettingCreateUpdateDto dto)
+        {
+            var color1 = NormalizeColor(dto.NavbarColor1, "Navbar Color 1");
+            var color2 = NormalizeColor(dto.NavbarColor2, "Navbar Color 2");
+            var glow = NormalizeColor(dto.NavbarGlowColor, "Navbar Glow Color");
+            var button = NormalizeColor(dto.NavbarButtonColor, "Navbar Button Color");
+
+            // Jo color nahi aaya, uski purani value rahegi
+            var finalColor1 = color1 ?? setting.NavbarColor1;
+            var finalColor2 = color2 ?? setting.NavbarColor2;
+
+            // Navbar ka text white hai, isliye light background allowed nahi
+            if ((finalColor1 != null && Luminance(finalColor1) > 0.35) ||
+                (finalColor2 != null && Luminance(finalColor2) > 0.35))
+            {
+                throw new ArgumentException(
+                    "Navbar Color 1 and Color 2 must be dark colors so the white text stays readable.");
+            }
+
+            setting.NavbarColor1 = finalColor1;
+            setting.NavbarColor2 = finalColor2;
+            setting.NavbarGlowColor = glow ?? setting.NavbarGlowColor;
+            setting.NavbarButtonColor = button ?? setting.NavbarButtonColor;
+        }
+
+        private static string? NormalizeColor(string? value, string label)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            var color = value.Trim();
+
+            if (!HexColorRegex.IsMatch(color))
+            {
+                throw new ArgumentException(
+                    $"{label} must be a valid hex color like #0D6EFD.");
+            }
+
+            return color.ToUpperInvariant();
+        }
+
+        private static double Luminance(string hex)
+        {
+            double Channel(int index)
+            {
+                var value =
+                    Convert.ToInt32(hex.Substring(index, 2), 16) / 255.0;
+
+                return value <= 0.03928
+                    ? value / 12.92
+                    : Math.Pow((value + 0.055) / 1.055, 2.4);
+            }
+
+            return 0.2126 * Channel(1)
+                 + 0.7152 * Channel(3)
+                 + 0.0722 * Channel(5);
         }
 
         // =========================
@@ -416,6 +492,19 @@ namespace ShantiEnterprises.API.Services
 
                 FooterText =
                     setting.FooterText,
+
+                // Navbar theme colors
+                NavbarColor1 =
+                    setting.NavbarColor1,
+
+                NavbarColor2 =
+                    setting.NavbarColor2,
+
+                NavbarGlowColor =
+                    setting.NavbarGlowColor,
+
+                NavbarButtonColor =
+                    setting.NavbarButtonColor,
 
                 UpdatedDate =
                     setting.UpdatedDate

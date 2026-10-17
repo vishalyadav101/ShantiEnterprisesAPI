@@ -39,6 +39,19 @@
 
         public string? FooterText { get; set; }
 
+        // Navbar theme colors (hex, e.g. #0A2E6E)
+        [System.ComponentModel.DataAnnotations.MaxLength(7)]
+        public string? NavbarColor1 { get; set; }
+
+        [System.ComponentModel.DataAnnotations.MaxLength(7)]
+        public string? NavbarColor2 { get; set; }
+
+        [System.ComponentModel.DataAnnotations.MaxLength(7)]
+        public string? NavbarGlowColor { get; set; }
+
+        [System.ComponentModel.DataAnnotations.MaxLength(7)]
+        public string? NavbarButtonColor { get; set; }
+
         public DateTime UpdatedDate { get; set; } = DateTime.UtcNow;
     }
 }

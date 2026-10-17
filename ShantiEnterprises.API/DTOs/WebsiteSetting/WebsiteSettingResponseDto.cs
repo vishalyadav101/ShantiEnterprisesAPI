@@ -39,6 +39,15 @@
 
         public string? FooterText { get; set; }
 
+        // Navbar theme colors
+        public string? NavbarColor1 { get; set; }
+
+        public string? NavbarColor2 { get; set; }
+
+        public string? NavbarGlowColor { get; set; }
+
+        public string? NavbarButtonColor { get; set; }
+
         public DateTime UpdatedDate { get; set; }
     }
 }

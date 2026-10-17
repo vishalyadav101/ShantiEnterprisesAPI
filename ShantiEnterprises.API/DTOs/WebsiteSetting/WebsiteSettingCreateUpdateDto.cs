@@ -38,5 +38,14 @@ namespace ShantiEnterprises.API.DTOs.WebsiteSetting
         public string? HighlightText { get; set; }
 
         public string? FooterText { get; set; }
+
+        // Navbar theme colors (hex like #0A2E6E)
+        public string? NavbarColor1 { get; set; }
+
+        public string? NavbarColor2 { get; set; }
+
+        public string? NavbarGlowColor { get; set; }
+
+        public string? NavbarButtonColor { get; set; }
     }
 }
